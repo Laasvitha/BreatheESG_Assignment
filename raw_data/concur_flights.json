@@ -1,0 +1,802 @@
+[
+  {
+    "trip_id": "T-001",
+    "employee": "EMP_56",
+    "type": "flight",
+    "origin": "DEN",
+    "destination": "CPH",
+    "class": "business"
+  },
+  {
+    "trip_id": "T-002",
+    "employee": "EMP_24",
+    "type": "flight",
+    "origin": "SYD",
+    "destination": "LIS",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-003",
+    "employee": "EMP_08",
+    "type": "flight",
+    "origin": "SYD",
+    "destination": "HEL",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-004",
+    "employee": "EMP_25",
+    "type": "flight",
+    "origin": "HND",
+    "destination": "ICN",
+    "class": "business"
+  },
+  {
+    "trip_id": "T-005",
+    "employee": "EMP_31",
+    "type": "flight",
+    "origin": "LIS",
+    "destination": "MIA",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-006",
+    "employee": "EMP_59",
+    "type": "flight",
+    "origin": "MCO",
+    "destination": "YYZ",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-007",
+    "employee": "EMP_42",
+    "type": "flight",
+    "origin": "XYZ",
+    "destination": "YYZ",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-008",
+    "employee": "EMP_32",
+    "type": "flight",
+    "origin": "ZRH",
+    "destination": "SFO",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-009",
+    "employee": "EMP_25",
+    "type": "flight",
+    "origin": "ZRH",
+    "destination": "PHX",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-010",
+    "employee": "EMP_38",
+    "type": "flight",
+    "origin": "ABC",
+    "destination": "XXX",
+    "class": "business"
+  },
+  {
+    "trip_id": "T-011",
+    "employee": "EMP_07",
+    "type": "flight",
+    "origin": "MEX",
+    "destination": "LHR",
+    "class": "business"
+  },
+  {
+    "trip_id": "T-012",
+    "employee": "EMP_45",
+    "type": "flight",
+    "origin": "ICN",
+    "destination": "MSP",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-013",
+    "employee": "EMP_07",
+    "type": "flight",
+    "origin": "BOS",
+    "destination": "CDG",
+    "class": "first"
+  },
+  {
+    "trip_id": "T-014",
+    "employee": "EMP_26",
+    "type": "flight",
+    "origin": "MCO",
+    "destination": "SIN",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-015",
+    "employee": "EMP_43",
+    "type": "flight",
+    "origin": "LAX",
+    "destination": "DXB",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-016",
+    "employee": "EMP_51",
+    "type": "flight",
+    "origin": "CPH",
+    "destination": "AMS",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-017",
+    "employee": "EMP_05",
+    "type": "flight",
+    "origin": "OSL",
+    "destination": "AMS",
+    "class": "business"
+  },
+  {
+    "trip_id": "T-018",
+    "employee": "EMP_53",
+    "type": "flight",
+    "origin": "BOM",
+    "destination": "ARN",
+    "class": "business"
+  },
+  {
+    "trip_id": "T-019",
+    "employee": "EMP_01",
+    "type": "flight",
+    "origin": "SFO",
+    "destination": "LIS",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-020",
+    "employee": "EMP_17",
+    "type": "flight",
+    "origin": "XYZ",
+    "destination": "SFO",
+    "class": "business"
+  },
+  {
+    "trip_id": "T-021",
+    "employee": "EMP_01",
+    "type": "flight",
+    "origin": "OSL",
+    "destination": "MIA",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-022",
+    "employee": "EMP_02",
+    "type": "flight",
+    "origin": "PHX",
+    "destination": "999",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-023",
+    "employee": "EMP_08",
+    "type": "flight",
+    "origin": "LAS",
+    "destination": "FCO",
+    "class": "business"
+  },
+  {
+    "trip_id": "T-024",
+    "employee": "EMP_38",
+    "type": "flight",
+    "origin": "ARN",
+    "destination": "LHR",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-025",
+    "employee": "EMP_47",
+    "type": "flight",
+    "origin": "FCO",
+    "destination": "YYZ",
+    "class": "business"
+  },
+  {
+    "trip_id": "T-026",
+    "employee": "EMP_30",
+    "type": "flight",
+    "origin": "MUC",
+    "destination": "ABC",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-027",
+    "employee": "EMP_28",
+    "type": "flight",
+    "origin": "EWR",
+    "destination": "DXB",
+    "class": "business"
+  },
+  {
+    "trip_id": "T-028",
+    "employee": "EMP_58",
+    "type": "flight",
+    "origin": "DXB",
+    "destination": "BOM",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-029",
+    "employee": "EMP_18",
+    "type": "flight",
+    "origin": "MIA",
+    "destination": "DEN",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-030",
+    "employee": "EMP_39",
+    "type": "flight",
+    "origin": "HEL",
+    "destination": "IAH",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-031",
+    "employee": "EMP_07",
+    "type": "flight",
+    "origin": "XXX",
+    "destination": "LIS",
+    "class": "business"
+  },
+  {
+    "trip_id": "T-032",
+    "employee": "EMP_47",
+    "type": "flight",
+    "origin": "NRT",
+    "destination": "IAH",
+    "class": "business"
+  },
+  {
+    "trip_id": "T-033",
+    "employee": "EMP_22",
+    "type": "flight",
+    "origin": "HND",
+    "destination": "SEA",
+    "class": "business"
+  },
+  {
+    "trip_id": "T-034",
+    "employee": "EMP_28",
+    "type": "flight",
+    "origin": "BOM",
+    "destination": "MAD",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-035",
+    "employee": "EMP_05",
+    "type": "flight",
+    "origin": "ABC",
+    "destination": "HND",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-036",
+    "employee": "EMP_48",
+    "type": "flight",
+    "origin": "LIS",
+    "destination": "CDG",
+    "class": "business"
+  },
+  {
+    "trip_id": "T-037",
+    "employee": "EMP_38",
+    "type": "flight",
+    "origin": "ORD",
+    "destination": "IAH",
+    "class": "first"
+  },
+  {
+    "trip_id": "T-038",
+    "employee": "EMP_23",
+    "type": "flight",
+    "origin": "IAH",
+    "destination": "CDG",
+    "class": "business"
+  },
+  {
+    "trip_id": "T-039",
+    "employee": "EMP_19",
+    "type": "flight",
+    "origin": "CPH",
+    "destination": "BCN",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-040",
+    "employee": "EMP_14",
+    "type": "flight",
+    "origin": "HND",
+    "destination": "LAS",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-041",
+    "employee": "EMP_55",
+    "type": "flight",
+    "origin": "ZZZ",
+    "destination": "CPH",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-042",
+    "employee": "EMP_15",
+    "type": "flight",
+    "origin": "ARN",
+    "destination": "LIS",
+    "class": "business"
+  },
+  {
+    "trip_id": "T-043",
+    "employee": "EMP_02",
+    "type": "flight",
+    "origin": "MEX",
+    "destination": "LAX",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-044",
+    "employee": "EMP_12",
+    "type": "flight",
+    "origin": "SEA",
+    "destination": "LAS",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-045",
+    "employee": "EMP_01",
+    "type": "flight",
+    "origin": "XXX",
+    "destination": "ABC",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-046",
+    "employee": "EMP_05",
+    "type": "flight",
+    "origin": "LAX",
+    "destination": "HND",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-047",
+    "employee": "EMP_48",
+    "type": "flight",
+    "origin": "MCO",
+    "destination": "SEA",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-048",
+    "employee": "EMP_11",
+    "type": "flight",
+    "origin": "CPH",
+    "destination": "ARN",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-049",
+    "employee": "EMP_06",
+    "type": "flight",
+    "origin": "999",
+    "destination": "XYZ",
+    "class": "business"
+  },
+  {
+    "trip_id": "T-050",
+    "employee": "EMP_44",
+    "type": "flight",
+    "origin": "IAH",
+    "destination": "BCN",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-051",
+    "employee": "EMP_39",
+    "type": "flight",
+    "origin": "BCN",
+    "destination": "ORD",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-052",
+    "employee": "EMP_23",
+    "type": "flight",
+    "origin": "OSL",
+    "destination": "MAD",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-053",
+    "employee": "EMP_34",
+    "type": "flight",
+    "origin": "DEN",
+    "destination": "999",
+    "class": "business"
+  },
+  {
+    "trip_id": "T-054",
+    "employee": "EMP_04",
+    "type": "flight",
+    "origin": "AMS",
+    "destination": "SFO",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-055",
+    "employee": "EMP_49",
+    "type": "flight",
+    "origin": "JFK",
+    "destination": "BCN",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-056",
+    "employee": "EMP_48",
+    "type": "flight",
+    "origin": "999",
+    "destination": "NRT",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-057",
+    "employee": "EMP_33",
+    "type": "flight",
+    "origin": "BOS",
+    "destination": "DXB",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-058",
+    "employee": "EMP_26",
+    "type": "flight",
+    "origin": "LAX",
+    "destination": "ABC",
+    "class": "business"
+  },
+  {
+    "trip_id": "T-059",
+    "employee": "EMP_59",
+    "type": "flight",
+    "origin": "IAH",
+    "destination": "OSL",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-060",
+    "employee": "EMP_26",
+    "type": "flight",
+    "origin": "ORD",
+    "destination": "PHX",
+    "class": "business"
+  },
+  {
+    "trip_id": "T-061",
+    "employee": "EMP_02",
+    "type": "flight",
+    "origin": "ARN",
+    "destination": "MCO",
+    "class": "first"
+  },
+  {
+    "trip_id": "T-062",
+    "employee": "EMP_54",
+    "type": "flight",
+    "origin": "IAH",
+    "destination": "HND",
+    "class": "business"
+  },
+  {
+    "trip_id": "T-063",
+    "employee": "EMP_16",
+    "type": "flight",
+    "origin": "SIN",
+    "destination": "PHX",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-064",
+    "employee": "EMP_56",
+    "type": "flight",
+    "origin": "SEA",
+    "destination": "DFW",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-065",
+    "employee": "EMP_05",
+    "type": "flight",
+    "origin": "999",
+    "destination": "FRA",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-066",
+    "employee": "EMP_58",
+    "type": "flight",
+    "origin": "BOM",
+    "destination": "SYD",
+    "class": "business"
+  },
+  {
+    "trip_id": "T-067",
+    "employee": "EMP_07",
+    "type": "flight",
+    "origin": "HEL",
+    "destination": "BOM",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-068",
+    "employee": "EMP_49",
+    "type": "flight",
+    "origin": "MAD",
+    "destination": "ABC",
+    "class": "business"
+  },
+  {
+    "trip_id": "T-069",
+    "employee": "EMP_49",
+    "type": "flight",
+    "origin": "CPH",
+    "destination": "MIA",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-070",
+    "employee": "EMP_56",
+    "type": "flight",
+    "origin": "EWR",
+    "destination": "DXB",
+    "class": "first"
+  },
+  {
+    "trip_id": "T-071",
+    "employee": "EMP_31",
+    "type": "flight",
+    "origin": "MEX",
+    "destination": "HEL",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-072",
+    "employee": "EMP_04",
+    "type": "flight",
+    "origin": "MCO",
+    "destination": "ABC",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-073",
+    "employee": "EMP_03",
+    "type": "flight",
+    "origin": "DXB",
+    "destination": "HND",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-074",
+    "employee": "EMP_40",
+    "type": "flight",
+    "origin": "OSL",
+    "destination": "LIS",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-075",
+    "employee": "EMP_51",
+    "type": "flight",
+    "origin": "CPH",
+    "destination": "XXX",
+    "class": "business"
+  },
+  {
+    "trip_id": "T-076",
+    "employee": "EMP_13",
+    "type": "flight",
+    "origin": "BOM",
+    "destination": "CDG",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-077",
+    "employee": "EMP_29",
+    "type": "flight",
+    "origin": "SEA",
+    "destination": "SIN",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-078",
+    "employee": "EMP_33",
+    "type": "flight",
+    "origin": "EWR",
+    "destination": "ABC",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-079",
+    "employee": "EMP_34",
+    "type": "flight",
+    "origin": "ZZZ",
+    "destination": "ZZZ",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-080",
+    "employee": "EMP_25",
+    "type": "flight",
+    "origin": "HEL",
+    "destination": "CDG",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-081",
+    "employee": "EMP_51",
+    "type": "flight",
+    "origin": "SEA",
+    "destination": "HND",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-082",
+    "employee": "EMP_36",
+    "type": "flight",
+    "origin": "HEL",
+    "destination": "BOM",
+    "class": "business"
+  },
+  {
+    "trip_id": "T-083",
+    "employee": "EMP_22",
+    "type": "flight",
+    "origin": "BOS",
+    "destination": "YYZ",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-084",
+    "employee": "EMP_42",
+    "type": "flight",
+    "origin": "HEL",
+    "destination": "SIN",
+    "class": "business"
+  },
+  {
+    "trip_id": "T-085",
+    "employee": "EMP_20",
+    "type": "flight",
+    "origin": "SEA",
+    "destination": "SFO",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-086",
+    "employee": "EMP_43",
+    "type": "flight",
+    "origin": "FCO",
+    "destination": "SIN",
+    "class": "business"
+  },
+  {
+    "trip_id": "T-087",
+    "employee": "EMP_42",
+    "type": "flight",
+    "origin": "LAX",
+    "destination": "MSP",
+    "class": "business"
+  },
+  {
+    "trip_id": "T-088",
+    "employee": "EMP_20",
+    "type": "flight",
+    "origin": "MAD",
+    "destination": "FRA",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-089",
+    "employee": "EMP_15",
+    "type": "flight",
+    "origin": "ZZZ",
+    "destination": "XYZ",
+    "class": "first"
+  },
+  {
+    "trip_id": "T-090",
+    "employee": "EMP_33",
+    "type": "flight",
+    "origin": "FCO",
+    "destination": "LHR",
+    "class": "business"
+  },
+  {
+    "trip_id": "T-091",
+    "employee": "EMP_43",
+    "type": "flight",
+    "origin": "SFO",
+    "destination": "ARN",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-092",
+    "employee": "EMP_25",
+    "type": "flight",
+    "origin": "ARN",
+    "destination": "DFW",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-093",
+    "employee": "EMP_47",
+    "type": "flight",
+    "origin": "ICN",
+    "destination": "MCO",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-094",
+    "employee": "EMP_40",
+    "type": "flight",
+    "origin": "EWR",
+    "destination": "NRT",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-095",
+    "employee": "EMP_35",
+    "type": "flight",
+    "origin": "MUC",
+    "destination": "FRA",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-096",
+    "employee": "EMP_24",
+    "type": "flight",
+    "origin": "EWR",
+    "destination": "MUC",
+    "class": "business"
+  },
+  {
+    "trip_id": "T-097",
+    "employee": "EMP_50",
+    "type": "flight",
+    "origin": "FCO",
+    "destination": "PHX",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-098",
+    "employee": "EMP_11",
+    "type": "flight",
+    "origin": "SFO",
+    "destination": "MEX",
+    "class": "business"
+  },
+  {
+    "trip_id": "T-099",
+    "employee": "EMP_04",
+    "type": "flight",
+    "origin": "LIS",
+    "destination": "HND",
+    "class": "economy"
+  },
+  {
+    "trip_id": "T-100",
+    "employee": "EMP_46",
+    "type": "flight",
+    "origin": "GRU",
+    "destination": "SIN",
+    "class": "business"
+  }
+]
