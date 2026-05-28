@@ -70,7 +70,8 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [fadeOut, setFadeOut] = useState(false)
 
-  const API_BASE = 'http://127.0.0.1:8000'
+
+  const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
   const CLIENT_CODE = 'ENT_A'
 
   const COLORS = ['#47d286', '#7ff2b3', '#8ed8ff', '#d9ffe8']
