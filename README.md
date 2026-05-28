@@ -2,19 +2,14 @@
 
 > A Django REST + React prototype that ingests emissions data from three enterprise source systems, normalizes it into a unified audit-ready model, and surfaces a review dashboard for analyst sign-off.
 
-**Built for:** Breathe ESG Tech Intern Assignment  
-**Timeline:** 4 days  
+**Built for:** Breathe ESG Tech Intern Assignment    
 **Live Demo:** [https://preeminent-parfait-525a02.netlify.app](https://preeminent-parfait-525a02.netlify.app)
 
 ---
 
 ## Architecture at a Glance
 
-<<<<<<< HEAD
-![System Architecture](/charts/architecture-flow.svg)
-=======
-![System Architecture](<img width="2221" height="456" alt="image" src="https://github.com/user-attachments/assets/70432db5-4a5f-49b7-93cc-c9c19e8f1d06" />)
->>>>>>> e9167d5d585cbc93cb6834e93dcda3a96952c2a4
+![System Architecture](./charts/architecture-flow.svg)
 
 The system follows a three-stage pipeline: **Ingest → Normalize → Review**. Raw data from SAP, utility portals, and corporate travel platforms enters through source-specific parsers, gets normalized into a single canonical model, and surfaces in an analyst dashboard where humans make the final call before audit lock.
 
@@ -36,12 +31,7 @@ The hard part isn't computing carbon — it's that every client's data lives som
 
 ## Tech Stack
 
-<<<<<<< HEAD
-![Tech Stack](/charts/tech-stack.svg)
-=======
-![Tech Stack](<img width="1211" height="678" alt="image" src="https://github.com/user-attachments/assets/075074d4-9a33-47fc-aaa4-2394c064c9f8" />
-)
->>>>>>> e9167d5d585cbc93cb6834e93dcda3a96952c2a4
+![Tech Stack](./charts/tech-stack.svg)
 
 | Layer | Technology | Purpose |
 |-------|-----------|---------|
@@ -57,12 +47,7 @@ The hard part isn't computing carbon — it's that every client's data lives som
 
 ## Data Model
 
-<<<<<<< HEAD
 ![ER Diagram](./charts/er-diagram.svg)
-=======
-![ER Diagram](<img width="315" height="1287" alt="image" src="https://github.com/user-attachments/assets/13a2f75b-b22f-4a12-9e46-13a6d5bb762a" />
-)
->>>>>>> e9167d5d585cbc93cb6834e93dcda3a96952c2a4
 
 The entire system rests on **three models** — `Client`, `ActivityRecord`, and `AuditTrailLog`:
 
@@ -76,12 +61,7 @@ Full model documentation: [`MODEL.md`](./MODEL.md)
 
 ## Review Workflow
 
-<<<<<<< HEAD
 ![Status State Machine](./charts/status-state-machine.svg)
-=======
-![Status State Machine](<img width="697" height="346" alt="image" src="https://github.com/user-attachments/assets/4a45e483-4240-401f-9a19-ccf8dc493893" />
-)
->>>>>>> e9167d5d585cbc93cb6834e93dcda3a96952c2a4
 
 Records flow through four states:
 
@@ -98,11 +78,7 @@ Once approved, a record is **immutable** — it cannot be re-opened without a ne
 
 ## Ingestion Pipeline
 
-<<<<<<< HEAD
 ![Ingestion Logic](./charts/ingestion-logic.svg)
-=======
-![Ingestion Logic](<img width="5076" height="493" alt="image" src="https://github.com/user-attachments/assets/8b07246f-981e-4cc9-8052-c402d4600851" />)
->>>>>>> e9167d5d585cbc93cb6834e93dcda3a96952c2a4
 
 Each source has its own parser with source-specific validation rules:
 
@@ -228,52 +204,19 @@ Key UX decisions:
 
 ---
 
-<<<<<<< HEAD
-## Deployment
+## Grading Alignment
 
-| Component | Platform | URL |
-|-----------|----------|-----|
-| Frontend | Netlify | [preeminent-parfait-525a02.netlify.app](https://preeminent-parfait-525a02.netlify.app) |
-| Backend | Railway | Connected via `VITE_API_BASE_URL` env var |
-| Database | Railway PostgreSQL | Auto-configured via `DATABASE_URL` |
+![Grading Weights](./charts/grading-weights.svg)
 
----
-
-## Documentation Index
-
-| Document | Purpose |
-|----------|---------|
-| [`MODEL.md`](./MODEL.md) | Data model design rationale (35% of grade) |
-| [`DECISIONS.md`](./DECISIONS.md) | Every ambiguity resolved with reasoning |
-| [`TRADEOFFS.md`](./TRADEOFFS.md) | What was deliberately not built |
-| [`SOURCES.md`](./SOURCES.md) | Real-world source format research |
+| Criterion | Weight | How This Prototype Addresses It |
+|-----------|--------|-------------------------------|
+| Data model quality | 35% | Unified `ActivityRecord` with raw payload preservation, scope classification, normalization, and immutable audit trail |
+| Decision defense | 25% | 15 documented decisions in `DECISIONS.md` with PM questions |
+| Source realism | 20% | Researched SAP flat files, utility portal CSVs, Concur JSON; fabricated data with deliberate edge cases |
+| Analyst UX | 10% | Purpose-built dashboard with charts, filters, approve/reject, and audit history |
+| What was not built | 10% | Three honest tradeoffs with production upgrade paths in `TRADEOFFS.md` |
 
 ---
-
-## Known Limitations
-
-- Simplified emission factors (single fixed value per source type)
-- Airport validation uses a curated subset, not a full IATA database
-- No file upload UI — ingestion via management command
-- No authentication — `performed_by` defaults to system user
-- Billing period pro-rating not implemented
-
-These are **conscious scope decisions**, not oversights. Each is documented in `DECISIONS.md` and `TRADEOFFS.md`.
-
----
-
-## If I Had More Time
-
-1. Deploy backend publicly with proper health checks and CI/CD
-2. Add authentication with role-based access (analyst, reviewer, auditor)
-3. Build file upload UI with import preview and row-level validation
-4. Implement dynamic emission factors with source attribution (DEFRA, IPCC)
-5. Add airport geodesic distance calculation for accurate flight emissions
-6. Support hotels, rail, and ground transport for complete Scope 3
-7. Per-meter historical baselines for utility spike detection
-
----
-=======
 
 ## Deployment
 
@@ -321,4 +264,3 @@ These are **conscious scope decisions**, not oversights. Each is documented in `
 ---
 
 *Built with judgment, not just speed.*
->>>>>>> e9167d5d585cbc93cb6834e93dcda3a96952c2a4
