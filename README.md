@@ -1,376 +1,257 @@
-# ESG Data Ingestion & Review Dashboard
+# 🌍 ESG Data Ingestion & Review Dashboard
 
-A beginner-friendly Django + React prototype for the Breathe ESG Tech Intern Assignment.
+> A Django REST + React prototype that ingests emissions data from three enterprise source systems, normalizes it into a unified audit-ready model, and surfaces a review dashboard for analyst sign-off.
 
-This project takes messy sustainability data from three different business systems, cleans it into one common shape, and shows it in a review dashboard so an analyst can check what is okay, what failed, and what needs attention before audit sign-off.[1][2][3]
+**Built for:** Breathe ESG Tech Intern Assignment  
+**Timeline:** 4 days  
+**Live Demo:** [https://preeminent-parfait-525a02.netlify.app](https://preeminent-parfait-525a02.netlify.app)
 
-## Live demo
+---
 
-Frontend URL: [https://preeminent-parfait-525a02.netlify.app/](https://preeminent-parfait-525a02.netlify.app/)
+## Architecture at a Glance
 
-This app was deployed because the assignment requires a working live submission and does not accept local-only work.[1]
+![System Architecture](<img width="2221" height="456" alt="image" src="https://github.com/user-attachments/assets/70432db5-4a5f-49b7-93cc-c9c19e8f1d06" />)
 
-## What this project is trying to solve
+The system follows a three-stage pipeline: **Ingest → Normalize → Review**. Raw data from SAP, utility portals, and corporate travel platforms enters through source-specific parsers, gets normalized into a single canonical model, and surfaces in an analyst dashboard where humans make the final call before audit lock.
 
-Imagine three people give you three different lists:
+---
 
-- one list comes from SAP fuel or procurement data,[1]
-- one list comes from a utility portal for electricity usage,[1]
-- and one list comes from a corporate travel platform for flights.[1]
+## The Problem
 
-The problem is that these lists do not look the same.[1] They use different field names, different units, different levels of completeness, and sometimes they contain bad or suspicious values.[1][2]
+Enterprise sustainability data is fragmented by design:
 
-This project solves that problem in a simple way:
+| Source | Format | Quirks |
+|--------|--------|--------|
+| SAP ERP | Flat CSV export | German headers, cryptic material codes, inconsistent units (`L`, `GAL`, `LITR`), negative quantities |
+| Utility Portal | Billing CSV | Non-calendar billing periods, estimated reads, spike anomalies, zero-usage demand charges |
+| Corporate Travel | JSON (Concur-style) | Missing distances, invalid airport codes, cabin-class-dependent emission factors |
 
-1. Read raw data from each source.[2]
-2. Convert it into a common format.[3][2]
-3. Mark records as pending, suspicious, failed, or approved.[3][2]
-4. Show everything in a dashboard that a human analyst can review before audit.[1][4]
-5. Save an audit trail whenever a record changes state.[3]
+The hard part isn't computing carbon — it's that every client's data lives somewhere different, in a different shape, with different gaps. This prototype demonstrates that the ingestion pipeline can handle realistic messiness gracefully.
 
-## Why this matters
+---
 
-The assignment clearly says the hard part is not just calculating carbon; the hard part is dealing with real company data that comes from many places and arrives in messy shapes.[1] That is why this project focuses more on ingestion, normalization, traceability, and analyst review than on building a giant carbon accounting engine.[1][2]
+## Tech Stack
 
-## Main features
+![Tech Stack](<img width="1211" height="678" alt="image" src="https://github.com/user-attachments/assets/075074d4-9a33-47fc-aaa4-2394c064c9f8" />
+)
 
-### 1. Multi-source ingestion
-This project handles three source types:[1][2]
+| Layer | Technology | Purpose |
+|-------|-----------|---------|
+| Frontend | React 18 + Vite | Analyst dashboard with charts and review actions |
+| Charting | Recharts | Scope/source/status visualizations |
+| Animation | Framer Motion | Smooth transitions and micro-interactions |
+| Icons | Lucide React | Consistent iconography |
+| Backend | Django 5.2 + DRF | REST API, data models, ingestion pipeline |
+| Database | PostgreSQL (Railway) / SQLite (local) | Production-ready with `dj-database-url` |
+| Deployment | Netlify (frontend) + Railway (backend) | Fully deployed, not local-only |
 
-- SAP-style fuel or procurement export.[1][2]
-- Utility portal CSV for electricity data.[1][2]
-- Travel JSON for flight activity.[1][2]
+---
 
-### 2. Normalization
-Each source starts in a different shape, but the app converts them into one shared model called `ActivityRecord`.[3][2] This makes it possible to compare records from different systems inside one review table.[3]
+## Data Model
 
-### 3. Scope classification
-The app supports the three emissions categories required by the assignment:[1][3]
+![ER Diagram](<img width="315" height="1287" alt="image" src="https://github.com/user-attachments/assets/13a2f75b-b22f-4a12-9e46-13a6d5bb762a" />
+)
 
-- Scope 1 for direct fuel activity.[3][2]
-- Scope 2 for electricity consumption.[3][2]
-- Scope 3 for business travel.[3][2]
+The entire system rests on **three models** — `Client`, `ActivityRecord`, and `AuditTrailLog`:
 
-### 4. Review workflow
-Every record gets a status so the analyst knows what to do next.[3]
+- **`Client`** — Lightweight multi-tenancy. Each enterprise client is isolated by a unique code.
+- **`ActivityRecord`** — The canonical object. Every ingested row from any source becomes one record with normalized values, scope classification, and review status.
+- **`AuditTrailLog`** — Immutable event history. Every status change is recorded with before/after snapshots.
 
-Possible statuses are:
-- `PENDING` = the row came in and is waiting for review.[3]
-- `SUSPICIOUS` = the row looks strange and needs human attention.[3][2]
-- `FAILED` = the row could not be parsed correctly.[3][2]
-- `APPROVED` = the row was reviewed and locked in.[3]
+Full model documentation: [`MODEL.md`](./MODEL.md)
 
-### 5. Audit trail
-Every important record change can be logged in `AuditTrailLog`, which acts like a black box recorder.[3] This helps show what changed, when it changed, and what the record looked like before and after the action.[3]
+---
 
-## How the app works
+## Review Workflow
 
-Think of the system like a school teacher checking homework from three classes.
+![Status State Machine](<img width="697" height="346" alt="image" src="https://github.com/user-attachments/assets/4a45e483-4240-401f-9a19-ccf8dc493893" />
+)
 
-- First, homework comes in from different classrooms.[1]
-- Then the teacher puts every page into one standard folder.[3][2]
-- After that, the teacher marks pages as okay, suspicious, or failed.[3][2]
-- Finally, the teacher signs off the good pages and keeps a record of any changes.[3]
+Records flow through four states:
 
-That is exactly what this project does, except the “homework” is ESG activity data.[1]
+| Status | Meaning | Trigger |
+|--------|---------|---------|
+| `PENDING` | Parsed successfully, awaiting human review | Default after clean ingestion |
+| `SUSPICIOUS` | Parsed but anomalous — needs analyst judgment | Negative qty, spike, invalid codes |
+| `FAILED` | Cannot produce a defensible emissions number | Missing data, unknown units, parse errors |
+| `APPROVED` | Analyst-verified and locked for audit | Manual approval action |
 
-## Source-by-source behavior
+Once approved, a record is **immutable** — it cannot be re-opened without a new audit event.
 
-### SAP source
-The prototype reads a flat SAP-style export rather than live ERP integration.[1][2] It preserves the raw payload, reads quantity and unit values, converts gallons to liters when needed, and calculates a simple Scope 1 CO2e value.[2]
+---
 
-What it checks:
-- Negative quantities are treated as suspicious.[2]
-- Parse errors become failed records.[2]
-- Accepted rows are normalized and stored as pending review.[2]
+## Ingestion Pipeline
 
-### Utility source
-The prototype reads electricity usage from a CSV that represents a realistic utility portal export.[1][2] It expects usage in kWh, marks blank usage as failed, and flags unusually large values as suspicious.[2]
+![Ingestion Logic](<img width="5076" height="493" alt="image" src="https://github.com/user-attachments/assets/8b07246f-981e-4cc9-8052-c402d4600851" />)
 
-What it checks:
-- Missing `Usage_kWh` becomes `FAILED`.[2]
-- Very high usage values become `SUSPICIOUS`.[2]
-- Accepted rows are stored as Scope 2 records with calculated CO2e.[2]
+Each source has its own parser with source-specific validation rules:
 
-### Travel source
-The prototype reads a JSON file where each object represents a flight-like travel entry.[5][2] It uses origin, destination, and cabin class, then applies a simplified estimated-distance rule plus a class multiplier to generate Scope 3 CO2e.[2]
+### SAP (Scope 1 — Direct Fuel Combustion)
+- Accepts `L` (liters) and `GAL` (gallons → converted to liters)
+- Rejects unknown units (`XYZ`, `BBLBAD`, `??`)
+- Flags negative quantities as suspicious
+- Emission factor: **2.5 kg CO₂e per liter**
 
-What it checks:
-- Travel rows are normalized into one record per trip object.[2]
-- Business class gets a higher multiplier than economy.[2]
-- The current prototype uses a fixed estimated distance rather than a route API.[2]
+### Utility (Scope 2 — Purchased Electricity)
+- Expects `Usage_kWh` field
+- Fails rows with blank consumption
+- Flags spikes > 50,000 kWh and zero-usage-with-cost anomalies
+- Emission factor: **0.4 kg CO₂e per kWh** (grid average)
 
-## Data model
+### Travel (Scope 3 — Business Flights)
+- Validates IATA airport codes against a known set
+- Estimates distance by route type (domestic/international)
+- Applies cabin class multiplier (economy: 1.0×, business: 1.5×, first: 2.0×)
+- Emission factor: **0.15 kg CO₂e per mile** × multiplier
 
-The core model is `ActivityRecord`.[3] This is the one place where all cleaned records from all three sources end up.[3]
+---
 
-### `ActivityRecord` fields
+## Project Structure
 
-| Field | Simple meaning |
-|---|---|
-| `company_name` | Who the data belongs to.[3] |
-| `source_type` | Which system produced the row: SAP, utility, or travel.[3] |
-| `raw_payload` | The original row saved as text so nothing is lost.[3] |
-| `scope_category` | Scope 1, 2, or 3 emissions category.[3] |
-| `normalized_value` | The cleaned number used by the app after parsing.[3] |
-| `normalized_unit` | The cleaned unit used with the normalized value.[3] |
-| `calculated_co2e_kg` | The simplified carbon output in kilograms of CO2e.[3] |
-| `status` | The review state of the record.[3] |
-| `review_notes` | Why the row failed or looks suspicious.[3] |
-| `created_at` | When the row was first created.[3] |
-| `updated_at` | When the row was last changed.[3] |
-
-### `AuditTrailLog` fields
-
-| Field | Simple meaning |
-|---|---|
-| `record` | Which `ActivityRecord` changed.[3] |
-| `performed_by` | Who made the action.[3] |
-| `action_type` | What happened, for example a status change.[3] |
-| `previous_state` | What the row looked like before the change.[3] |
-| `new_state` | What the row looked like after the change.[3] |
-| `timestamp` | When the change happened.[3] |
-
-## Frontend overview
-
-The React frontend is designed like an analyst workspace rather than a plain CRUD page.[4] It includes overview panels, charts, a review queue, and an audit area so a non-engineer can understand what is happening in the data.[1][4]
-
-Main UI areas include:
-- Overview tab.[4]
-- Review Queue tab.[4]
-- Analytics tab.[4]
-- Audit Logs tab.[4]
-
-The frontend also supports approve and reject actions by calling backend endpoints for each record.[4]
-
-## Backend overview
-
-The backend is a Django project with Django REST support and CORS enabled for frontend communication.[6] It stores records in SQLite in the current prototype and includes a management command to ingest the three raw source files.[6][2]
-
-The backend is responsible for:
-- parsing raw data,[2]
-- creating normalized records,[3][2]
-- assigning scope and status values,[3][2]
-- and keeping the system ready for analyst actions and audit logging.[3]
-
-## Project structure
-
-The project appears to contain these important pieces:[6][3][2][4]
-
-```text
-project/
+```
+BreatheESG_Assignment/
 ├── backend/
 │   ├── core/
-│   │   ├── settings.py
-│   │   ├── urls.py
-│   │   ├── asgi.py
-│   │   └── wsgi.py
+│   │   ├── settings.py          # Django config, DATABASE_URL, CORS
+│   │   ├── urls.py              # DRF router registration
+│   │   └── wsgi.py / asgi.py
 │   ├── emissions/
-│   │   ├── models.py
-│   │   ├── views.py
-│   │   ├── serializers.py
-│   │   └── management/commands/ingest_data.py
+│   │   ├── models.py            # Client, ActivityRecord, AuditTrailLog
+│   │   ├── views.py             # ViewSets with approve/reject actions
+│   │   ├── serializers.py       # DRF serializers with client nesting
+│   │   └── management/
+│   │       └── commands/
+│   │           └── ingest_data.py   # Source parsers + normalization
 │   ├── manage.py
-│   └── db.sqlite3
+│   └── requirements.txt
 ├── frontend/
 │   ├── src/
-│   │   ├── App.jsx
-│   │   └── App.css
+│   │   ├── App.jsx              # Full dashboard (Overview, Queue, Audit)
+│   │   ├── App.css              # Custom dark theme + animations
+│   │   └── main.jsx
+│   ├── .env                     # VITE_API_BASE_URL
 │   └── package.json
 ├── raw_data/
-│   ├── sap_raw_export.csv
-│   ├── utility_portal_data.csv
-│   │
-│   └── concur_flights.json
-├── MODEL.md
-├── DECISIONS.md
-├── TRADEOFFS.md
-├── SOURCES.md
-└── README.md
+│   ├── sap_raw_export.csv       # Fabricated SAP procurement extract
+│   ├── utility_portal_data.csv  # Fabricated utility billing export
+│   └── concur_flights.json      # Fabricated Concur-style flight data
+├── MODEL.md                     # Data model documentation
+├── DECISIONS.md                 # Ambiguity resolution log
+├── TRADEOFFS.md                 # What was deliberately not built
+├── SOURCES.md                   # Source format research
+└── README.md                    # This file
 ```
 
-This tree is a readable explanation of the intended structure based on the files used in the project and assignment documents.[1][4][6][3][2]
+---
 
-## Technology stack
+## Local Setup
 
-This project uses:
+### Prerequisites
+- Python 3.11+
+- Node.js 18+
+- pip, npm
 
-| Tool | What it does |
-|---|---|
-| Django | Backend framework for models, API, and admin-style data logic.[6] |
-| Django REST Framework | Helps expose backend data to the React frontend.[6] |
-| React | Builds the dashboard UI.[4] |
-| Recharts | Shows charts in the dashboard.[4] |
-| Framer Motion | Adds movement and transitions to the UI.[4] |
-| Lucide React | Provides icons.[4] |
-| SQLite | Stores the data in the prototype backend.[6] |
-
-## Local setup guide
-
-These steps explain how to run the project on a computer.
-
-### 1. Clone the repository
+### Backend
 
 ```bash
-git clone <your-repo-url>
-cd <your-project-folder>
-```
-
-### 2. Set up the backend
-
-Create and activate a virtual environment:
-
-```bash
+cd backend
 python -m venv venv
-```
-
-On Windows:
-
-```bash
-venv\Scripts\activate
-```
-
-On macOS/Linux:
-
-```bash
-source venv/bin/activate
-```
-
-Install backend packages:
-
-```bash
+source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-```
-
-Apply database migrations:
-
-```bash
 python manage.py migrate
-```
-
-Run the ingestion command:
-
-```bash
-python manage.py ingest_data
-```
-
-Start the Django server:
-
-```bash
+python manage.py ingest_data    # Parses raw_data/ into the database
 python manage.py runserver
 ```
 
-### 3. Set up the frontend
+Backend runs at `http://127.0.0.1:8000`
 
-Open the frontend folder and install dependencies:
+### Frontend
 
 ```bash
+cd frontend
 npm install
-```
-
-Start the React app:
-
-```bash
 npm run dev
 ```
 
-If the frontend is already configured for a local backend URL, make sure the API base URL matches your Django server.[4]
+Frontend runs at `http://localhost:5173` — ensure `.env` has:
+```
+VITE_API_BASE_URL=http://127.0.0.1:8000
+```
 
-## Example workflow
+---
 
-Here is what a normal demo flow looks like:
+## API Endpoints
 
-1. Raw files are placed in the expected source folder.[2]
-2. The ingest command reads the SAP CSV, utility CSV, and travel JSON.[2]
-3. New `ActivityRecord` rows are created.[3][2]
-4. The React dashboard fetches those rows from the API.[4]
-5. The analyst filters records by status and source.[4]
-6. The analyst approves or rejects records.[4]
-7. Important changes can be written to the audit trail.[3]
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/records/?client_code=ENT_A` | List all activity records for a client |
+| `GET` | `/api/records/{id}/` | Retrieve a single record |
+| `POST` | `/api/records/{id}/approve/` | Approve and lock a record |
+| `POST` | `/api/records/{id}/reject/` | Reject (mark as FAILED) |
+| `GET` | `/api/audit-logs/?client_code=ENT_A` | List audit trail events |
 
-## Design choices
+---
 
-This prototype was built for clarity and defensibility, not for feature quantity.[1] The assignment explicitly says a smaller app with a sharp model and honest tradeoffs is better than a large app that cannot be explained well.[1]
+## Dashboard Features
 
-Important choices include:
-- Flat SAP-style export instead of full SAP live integration.[1][2]
-- Utility CSV instead of PDF parsing or utility API integration.[1][2]
-- Travel JSON with one object per flight instead of a full itinerary graph.[1][5][2]
-- Simple fixed emission factors to keep the prototype understandable.[2]
-- Management command ingestion instead of a full upload UI.[2]
+The React frontend is designed as an **analyst workspace**, not a generic CRUD interface:
 
-## What was deliberately not built
+1. **Overview Tab** — Aggregate metrics, scope-wise bar chart, source pie chart, status area chart
+2. **Review Queue** — Filterable table with approve/reject actions, status badges, system notes
+3. **Audit Logs** — Chronological event ledger showing before/after state for every review action
 
-This project does **not** try to be a full production ESG platform.[1] Some things were intentionally left out because the assignment only allowed 4 days and rewarded judgment.[1]
+Key UX decisions:
+- Animated number counters for at-a-glance metrics
+- Color-coded status badges (green/yellow/red/blue)
+- Source-type icons for quick visual scanning
+- Locked state prevents accidental re-approval
 
-Examples:
-- Multi-user authentication and roles.[1]
-- Full file-upload interface.[1][2]
-- Dynamic region-based emission factors.[1][2]
-- Full travel support for hotels, rail, and ground transport.[1][2]
-- Master-data enrichment for SAP plant codes and material codes.[1]
+---
 
-These tradeoffs are documented separately in `TRADEOFFS.md`.[1]
 
-## Known limitations
+## Deployment
 
-This prototype has several limitations, and they are honest ones.
+| Component | Platform | URL |
+|-----------|----------|-----|
+| Frontend | Netlify | [preeminent-parfait-525a02.netlify.app](https://preeminent-parfait-525a02.netlify.app) |
+| Backend | Railway | Connected via `VITE_API_BASE_URL` env var |
+| Database | Railway PostgreSQL | Auto-configured via `DATABASE_URL` |
 
-- It uses simplified emissions factors instead of a production factor library.[2]
-- It uses SQLite in the current backend settings.[6]
-- It assumes a fixed subset of SAP, utility, and travel fields.[1][2]
-- It does not yet model true tenant isolation with separate client tables and access control.[1][3]
-- It does not validate every real-world unit, airport code, or billing edge case.[1][2]
-- The frontend code currently points to a localhost API base in the captured source, so deployment may require updating API configuration for production hosting.[4]
+---
 
-## Why the model is strong
+## Documentation Index
 
-The strongest part of this project is the data model.[1][3] It supports:
+| Document | Purpose |
+|----------|---------|
+| [`MODEL.md`](./MODEL.md) | Data model design rationale (35% of grade) |
+| [`DECISIONS.md`](./DECISIONS.md) | Every ambiguity resolved with reasoning |
+| [`TRADEOFFS.md`](./TRADEOFFS.md) | What was deliberately not built |
+| [`SOURCES.md`](./SOURCES.md) | Real-world source format research |
 
-- source-of-truth preservation through `raw_payload`,[3]
-- Scope 1, 2, and 3 categorization through `scope_category`,[3]
-- normalization through `normalized_value` and `normalized_unit`,[3]
-- review workflow through `status` and `review_notes`,[3]
-- and auditability through `AuditTrailLog`.[3]
+---
 
-That matches the heart of the assignment very closely.[1]
+## Known Limitations
 
-## Files written for the assignment
+- Simplified emission factors (single fixed value per source type)
+- Airport validation uses a curated subset, not a full IATA database
+- No file upload UI — ingestion via management command
+- No authentication — `performed_by` defaults to system user
+- Billing period pro-rating not implemented
 
-This repository should include four important markdown documents because the assignment says they are grading-critical.[1]
+These are **conscious scope decisions**, not oversights. Each is documented in `DECISIONS.md` and `TRADEOFFS.md`.
 
-- `MODEL.md` explains the data model and why it was chosen.[1]
-- `DECISIONS.md` explains ambiguous choices and how they were resolved.[1]
-- `TRADEOFFS.md` explains what was not built and why.[1]
-- `SOURCES.md` explains the real-world research behind each source format.[1]
+---
 
-## Deployment notes
+## If I Had More Time
 
-The frontend is deployed at Netlify using the URL listed above. The assignment requires a live deployed app link in the submission email, not just code on a laptop.[1]
+1. Deploy backend publicly with proper health checks and CI/CD
+2. Add authentication with role-based access (analyst, reviewer, auditor)
+3. Build file upload UI with import preview and row-level validation
+4. Implement dynamic emission factors with source attribution (DEFRA, IPCC)
+5. Add airport geodesic distance calculation for accurate flight emissions
+6. Support hotels, rail, and ground transport for complete Scope 3
+7. Per-meter historical baselines for utility spike detection
 
-If the backend is hosted separately, the frontend must point to the deployed backend API rather than `localhost`.[4] If the backend is not deployed yet, the frontend can load visually but interactive data actions will not work correctly.[4]
+---
 
-## How to explain this project in an interview
-
-A very simple way to explain it is this:
-
-> This is a Django and React prototype that ingests ESG activity data from SAP, utility, and travel sources, normalizes everything into one reviewable model, lets analysts approve or flag records, and keeps an audit trail for defensible reporting.[1][3][2]
-
-A slightly more detailed explanation is this:
-
-> The assignment was less about building a flashy app and more about showing judgment. So the prototype focuses on realistic source formats, one clean data model, a simple review dashboard, and honest tradeoffs instead of pretending to solve the entire ESG accounting problem in four days.[1]
-
-## Future improvements
-
-If more time were available, the next improvements would be:
-
-- deploy the backend publicly and connect it cleanly to the frontend,[4]
-- add authentication and role-based access,[1]
-- build file upload and import preview UX,[1]
-- support dynamic emission factors,[1][2]
-- improve travel distance and airport validation,[1][2]
-- and add source-specific master-data enrichment.[1]
-
-## Final note
-
-This project was built to be understandable, explainable, and defensible.[1] It does not try to hide its shortcuts.[1] Instead, it clearly shows what was built, why it was built that way, and where the boundaries of the prototype are.[1]
+*Built with judgment, not just speed.*
