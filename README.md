@@ -204,20 +204,6 @@ Key UX decisions:
 
 ---
 
-## Grading Alignment
-
-![Grading Weights](./charts/grading-weights.svg)
-
-| Criterion | Weight | How This Prototype Addresses It |
-|-----------|--------|-------------------------------|
-| Data model quality | 35% | Unified `ActivityRecord` with raw payload preservation, scope classification, normalization, and immutable audit trail |
-| Decision defense | 25% | 15 documented decisions in `DECISIONS.md` with PM questions |
-| Source realism | 20% | Researched SAP flat files, utility portal CSVs, Concur JSON; fabricated data with deliberate edge cases |
-| Analyst UX | 10% | Purpose-built dashboard with charts, filters, approve/reject, and audit history |
-| What was not built | 10% | Three honest tradeoffs with production upgrade paths in `TRADEOFFS.md` |
-
----
-
 ## Deployment
 
 | Component | Platform | URL |
