@@ -1,75 +1,47 @@
 # TRADEOFFS.md
 
-## Overview
+## What this file is
 
-This prototype was built under a 4-day constraint, so the goal was not to simulate a full production ESG platform.[1] The assignment explicitly says a smaller app with sharp modeling and honest tradeoffs is better than a feature-heavy system that is harder to defend, so several capabilities were deliberately left out.[1] These omissions were not oversights; they were prioritization decisions that kept time focused on ingestion realism, normalization, review workflow, and auditability.[1][2]
+These are three things I deliberately didn't build and why. The assignment was clear that a focused prototype with honest tradeoffs beats a feature-heavy one you can't defend. Everything left out was a conscious decision to protect time for the parts of the system that actually matter for evaluation: ingestion realism, normalization, analyst review, and audit trail.
 
-## 1. Multi-user authentication and role-based permissions
+---
 
-### What was not built
-The prototype does not include full authentication, user accounts, SSO, or role-based permissions such as analyst versus admin versus auditor.[1][3]
+## 1. Authentication, user accounts, and role-based permissions
 
-### Why this was a good decision for a 4-day prototype
-The assignment’s core value is whether the app can ingest messy source data, normalize it, surface failures and suspicious rows, and support analyst sign-off before audit.[1] Building a production-style auth system would have consumed a large amount of time on login flows, session handling, role checks, protected routes, and seed users without improving the core demonstration of ESG data handling.[1] Using a simpler reviewer model also made the audit workflow easier to explain because the focus stayed on what changed in the data rather than who could access which screen.[3]
+**What I skipped:** There's no real login system in this prototype. No user accounts, no SSO, no role separation between analyst, reviewer, admin, and auditor. The `performed_by` field in `AuditTrailLog` defaults to `"System Analyst"` rather than pulling from a logged-in user session.
 
-### What would be added next in a real product
-The next step would be tenant-scoped authentication with distinct roles such as ingest operator, sustainability analyst, reviewer, and auditor, each with different permissions around approval, rejection, editing, and audit-log visibility.[1]
+**Why this was the right call:** Authentication is a solved problem in Django — it's not what the assignment is evaluating. Setting it up properly would've meant user models, session handling, protected API routes, role-based permission checks, seed users for the demo, and a login flow in the React frontend. That's easily a day of work. Spending that time on auth instead of, say, making the ingestion pipeline handle messy SAP data correctly would've been the wrong trade.
 
-## 2. Full file-upload UI and source connector UX
+The audit workflow is also actually easier to explain without auth in the picture — the focus stays on what changed in the data rather than who had permission to change it. The concept of accountable action ownership is still demonstrated through the `performed_by` field, even if it's not hooked up to a real auth backend.
 
-### What was not built
-The prototype does not include a frontend upload flow for SAP, utility, or travel files, and it does not implement external connectors or scheduled pulls.[1][2] Instead, ingestion is handled through a Django management command that parses prepared source files from disk.[2]
+**What the real version would need:** Proper tenant-scoped authentication with distinct roles — probably something like ingest operator (can trigger ingestion), sustainability analyst (can review and flag records), senior reviewer (can approve), and auditor (read-only access to approved records and audit logs). Role checks would need to be enforced at both the API and UI level.
 
-### Why this was a good decision for a 4-day prototype
-This was a good tradeoff because the assignment is grading data modeling judgment and realistic source handling more than polished ingestion plumbing.[1] A file-upload UI would have required extra work around file storage, progress states, validation messaging, error recovery, and frontend/backend upload orchestration, while the management command already proves the important part: that the system can parse realistic SAP, utility, and travel shapes into one normalized review model.[1][2] The prototype therefore spent time on the ingestion logic itself rather than on an upload shell around it.[2]
+---
 
-### What would be added next in a real product
-The next iteration would likely include a source onboarding screen with file upload, validation previews, row-level import summaries, and retry/export flows for failed records.[1]
+## 2. File upload UI and source connector infrastructure
 
-## 3. Dynamic emission factors by region, fuel type, and methodology version
+**What I skipped:** There's no file upload flow in the frontend. Analysts can't drag and drop a CSV or JSON file and watch it get ingested. Ingestion is triggered through a Django management command that parses pre-loaded files from disk.
 
-### What was not built
-The prototype uses simplified fixed emissions factors in ingestion logic rather than a dynamic factor engine that varies by geography, fuel type, utility grid mix, travel methodology, or reporting standard version.[2]
+**Why this was the right call:** A file upload UI sounds simple but the full implementation isn't. You need file storage (S3 or equivalent), upload progress states, row-level validation previews, an import summary showing how many records succeeded and how many failed, retry flows for failed rows, and feedback when something is wrong with the file format. All of that is frontend and backend plumbing that has nothing to do with whether the ingestion logic actually handles SAP quirks correctly.
 
-### Why this was a good decision for a 4-day prototype
-This was a strong prototype decision because the assignment itself says the hard part is not computing carbon in the abstract, but dealing with source systems that are messy, inconsistent, and incomplete.[1] A dynamic emissions-factor engine would have required factor tables, source attribution, version control, unit compatibility rules, and methodology documentation, which would have pushed the project toward carbon-accounting infrastructure instead of ingestion and analyst review.[1] A simple fixed-factor approach kept the calculations transparent and made it easier to defend how raw values became comparable CO2e figures in the dashboard.[2]
+The management command approach gets to the point: it proves the system can parse realistic, messy source files and normalize them into the review model. That's what's being evaluated. The shell around it isn't.
 
-### What would be added next in a real product
-A production version would separate factor management into its own model layer with source references, effective dates, regional overrides, fuel mappings, and change history for audit defensibility.[1]
+**What the real version would need:** A source onboarding screen where analysts can upload files per source type, preview the parsed rows before committing them to the database, get a per-row import summary, and export failed rows back as a corrected template. Probably also scheduled API pulls for sources that support it (Concur has an API, some utilities offer Green Button).
 
-## 4. Full travel coverage beyond flights
+---
 
-### What was not built
-The travel source only models flights in JSON form and does not include hotels, rail, taxis, rental cars, or multi-segment itinerary logic.[1][4][2]
+## 3. Dynamic emission factors
 
-### Why this was a good decision for a 4-day prototype
-Flights alone are enough to demonstrate a credible Scope 3 ingestion path while keeping the parser understandable.[1][4] Supporting every travel category would have required different activity models, different emissions methodologies, and different edge-case handling, which would have diluted time from the main prototype value: one working end-to-end pipeline from raw source data to analyst review.[1] Narrowing travel to flights made the sample realistic without making the prototype unmanageably broad.[4]
+**What I skipped:** All three sources use simplified, hardcoded emission factors. SAP fuel records use a single factor per liter. Utility records use a single grid emission factor per kWh. Travel records use an estimated distance fallback with a cabin multiplier. There are no regional factors, fuel-type-specific factors, grid mix variations, or versioned factor libraries.
 
-### What would be added next in a real product
-A fuller travel layer would support itinerary segments, hotels, ground transport, cancellations, cabin multipliers by methodology, and better airport validation or route-distance services.[1][4]
+**Why this was the right call:** The assignment itself says the hard part isn't computing carbon — it's dealing with source data that's messy, incomplete, and inconsistent. If I'd spent time building a factor engine with regional tables, effective date ranges, methodology version tracking, and unit compatibility rules, I'd have a very sophisticated emissions calculator and a shallow ingestion pipeline. That's backwards relative to what's being evaluated.
 
-## 5. Source-specific enrichment and lookup tables
+A fixed, transparent factor also has a practical advantage: it's easy to explain. Anyone reviewing the prototype can immediately understand how a normalized quantity value becomes a CO2e number. A dynamic factor lookup would introduce a whole separate layer of complexity that would need its own documentation.
 
-### What was not built
-The prototype does not enrich SAP plant codes, material codes, utility meters, or airport codes through external lookup tables or master data mappings.[5][6][4]
+**What the real version would need:** A proper factor management layer — a separate model (or set of models) storing factors by source type, fuel type, region, grid zone, reporting methodology, and effective date. Factors would need source attribution (IPCC, DEFRA, EPA, etc.) and change history for audit defensibility. The ingestion pipeline would look up the applicable factor at the time of ingestion and store a reference to it on the activity record.
 
-### Why this was a good decision for a 4-day prototype
-The assignment specifically points out that source systems often contain codes that mean little without lookup context, but implementing all of those mappings would have expanded the scope dramatically.[1] Leaving those codes largely as-is was still useful because it preserved the realism of operational data while keeping the prototype focused on normalization, status handling, and raw payload traceability.[1][5][2] It also creates a good discussion point in review: the system shows where master-data enrichment would matter in production without pretending that the prototype already solves it.[1]
+---
 
-### What would be added next in a real product
-The next step would be source-specific mapping tables for plants, meters, airports, and material families, plus analyst-friendly labels layered on top of raw operational codes.[1][5][6]
+## Why these three specifically
 
-## 6. Record editing and remediation workflow
-
-### What was not built
-The app allows approve/reject review actions but does not provide a full remediation workflow for editing failed rows, correcting normalized values, or resubmitting corrected versions inside the UI.[1][2]
-
-### Why this was a good decision for a 4-day prototype
-For the assignment, it was more important to show that bad data can be surfaced and tracked than to build a complete exception-management product.[1] A remediation workflow would need edit permissions, diff views, versioning rules, revalidation logic, and decisions about whether records are overwritten or superseded, which is too much product design for this timeframe.[1] Keeping the workflow at approve/reject plus audit logging made the review model small, demonstrable, and easy to defend.[3][2]
-
-### What would be added next in a real product
-A future version would support analyst notes, correction proposals, reprocessing, and explicit record version chains instead of a simple pass/fail review loop.[1]
-
-## Closing note
-
-These omissions were good decisions because they protected the prototype from becoming a shallow imitation of an enterprise platform.[1] The delivered scope stays aligned with the assignment’s highest-value questions: can the system ingest realistic source files, normalize them, categorize Scope 1/2/3 activity, surface problems to analysts, and preserve an audit trail for reviewable decisions?[1][3][2]
+I picked these three because they all share the same property: they're real product requirements that would matter eventually, but building them in a 4-day prototype would've come at the direct expense of the things the assignment actually grades — data model quality, source handling realism, and analyst UX. None of these omissions affect the ability to demonstrate ingestion, normalization, review workflow, or audit trail. They're all additive features for a production version, not prerequisites for a credible prototype.

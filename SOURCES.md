@@ -1,60 +1,95 @@
 # SOURCES.md
 
-## Overview
+## What this file is
 
-This prototype intentionally models three realistic enterprise sustainability inputs: SAP fuel/procurement exports, utility portal electricity exports, and corporate travel itinerary data.[1] The assignment specifically asked for researched source shapes rather than toy examples, so each sample source was designed to resemble a format that teams could plausibly receive from operational systems.[1] The implementation only handles a defensible subset of each source because the goal of the prototype is explainable ingestion and review, not full source-system coverage.[1][2]
+For each of the three source types I built against, this document covers what the real-world format actually looks like, what I learned from researching it, what the sample data in this prototype looks like and why, and what would genuinely break if this were a real client deployment.
 
-## 1. SAP fuel and procurement source
+---
 
-### Real-world formats researched
-SAP integrations commonly expose data through several patterns, including IDocs, BAPIs, OData services, and flat files for file-based exchange.[3][4] Flat-file and IDoc-style file exports are realistic in enterprise environments where data is manually exchanged or staged for downstream import/export processes.[5][3]
+## 1. SAP fuel and procurement data
 
-### What the prototype chose
-The prototype uses a flat SAP-style CSV export rather than building against live IDoc, BAPI, or OData connectivity.[1][2] This choice is consistent with the assignment’s framing that SAP exports are often messy and not integration-friendly, and it matches a realistic onboarding scenario where a client hands over an extract from procurement or fuel operations rather than exposing a live ERP interface on day one.[1]
+### What I researched
 
-### What was kept from the real shape
-The sample preserves several characteristics that make SAP data feel operational rather than invented: coded source-system fields, quantity values, units of measure, and the idea that rows may include plant- or material-level business context that is meaningful internally but not immediately analyst-friendly.[1][6] The ingestion logic also preserves the raw row payload exactly, which is important because source-of-truth traceability matters more than aggressive cleanup in audit-facing systems.[7][2]
+SAP is one of those systems where there's no single "export format" — it depends on the client's configuration, their SAP version, what modules they're running, and how their IT team has set things up. The common options are:
 
-### What was simplified
-The prototype does not implement plant-code lookups, material master enrichment, German-language header handling, or multi-format date parsing even though those issues are realistic in SAP exports.[1] It also normalizes only a narrow set of quantity/unit assumptions and applies a simple fixed emissions factor once the quantity is accepted, rather than using fuel-specific or region-specific factor tables.[2]
+- **IDocs** — SAP's native file-based exchange format. Hierarchical, structured, used for system-to-system integration. Realistic but painful to parse without a middleware layer.
+- **Flat file exports** — Tab-separated or CSV extracts from transactions like ME2M or MB51. This is what a procurement or plant manager would actually pull from their screen and email to you.
+- **OData services** — SAP's REST-ish API layer, available in newer S/4HANA environments. Clean in theory; complex to auth against and requires client cooperation to expose.
+- **BAPIs** — SAP's function module interface for programmatic access. Technically capable but requires knowing which BAPI applies to which data category.
 
-### What would break in real life
-A real deployment would need to handle far larger files, inconsistent encodings, multiple unit aliases, negative reversals versus genuine bad data, unfamiliar plant or material codes, and multiple export variants depending on the client’s SAP configuration.[1][2] It would also need clearer rules for when a row should fail, when it should be marked suspicious, and when it needs master-data enrichment before emissions can be computed reliably.[1]
+I chose flat file CSV because it's the most realistic onboarding scenario: a client hands you a procurement or fuel extract from their operations team before any API integration is set up. Real SAP flat files have characteristics worth knowing about — column headers sometimes appear in German if the client's system language is configured that way, date formats can be `DD.MM.YYYY` rather than ISO, quantity fields can include thousands separators as periods (European number format), and unit fields are usually SAP internal codes (`L` for liters, `GAL` for gallons, `KG` for kilograms) rather than natural language labels.
 
-## 2. Utility portal electricity source
+### What the sample data looks like and why
 
-### Real-world formats researched
-Utility self-service and energy-management portals commonly allow customers to export billing or usage data in CSV, and some environments also expose XML through Green Button-style downloads.[8] Real exported files can include account number, service or meter identifiers, billing-period start and end dates, usage, units, cost, and notes for estimated reads or missing data. Utility portals may also offer interval data, multiple fuel files, or zipped exports containing separate files by resource type or service point.[9]
+The sample SAP CSV includes: a document number, a posting date, a plant code, a material code, a description, a quantity, a unit of measure, and a monetary amount. I deliberately included:
 
-### What the prototype chose
-The prototype chose a utility portal CSV focused on electricity billing/usage data rather than PDF parsing or live utility APIs.[1][2] That is a practical decision for a 4-day prototype because CSV is a common operational export and directly supports deterministic parsing, normalization, and suspicious-record detection.[1]
+- Clean rows that parse and normalize correctly (liters of diesel, gallons of fuel)
+- Rows with unknown units (`LITR`, `XYZ`, `??`, `BBLBAD`) that should fail or be flagged
+- Negative quantity rows that could be purchase reversals or data errors
+- A row with a completely empty quantity field
 
-### What was kept from the real shape
-The sample utility data keeps the core billing-style fields that matter for ESG review: account context, meter or service identity, billing start date, billing end date, usage in kWh, and cost.[10] The ingestion logic also models two realistic data-quality issues called out by utility exports: usage can be blank, and a value can be present but operationally suspicious because it spikes far above expected consumption.[2]
+This reflects what real SAP extracts look like when you first receive them from a client. They almost never come pre-cleaned.
 
-### What was simplified
-The prototype only handles a single electricity-oriented CSV shape and assumes usage is already in kWh.[10][2] It does not model AMI interval reads, multi-register meters, estimated-versus-actual bill logic, tariff structures, demand charges, solar import/export columns, or multi-fuel zip bundles even though those are all realistic utility-export behaviors.
+The ingestion logic accepts `L` (liters) directly, converts `GAL` to liters, and marks anything else as either `FAILED` or `SUSPICIOUS` depending on how badly the row is broken. The raw payload is preserved exactly so the analyst can see the original source row even after normalization.
 
-### What would break in real life
-A real deployment would need to cope with multiple billing frequencies, partial billing windows that do not align to calendar months, zip files containing many CSVs, interval data at hourly or 15-minute resolution, missing reads, multiple meters per account, and non-electric fuels like gas or water.[9] It would also need stronger anomaly detection than a single hardcoded spike threshold, because usage patterns vary dramatically across sites, seasons, and facility types.[2]
+### What would break in a real deployment
 
-## 3. Corporate travel source
+Quite a bit. First, scale — a real SAP fuel export for a large enterprise could have tens of thousands of rows, and parsing performance would need to be considered. Second, encoding — SAP files sometimes export in CP1252 or ISO-8859-1 rather than UTF-8, which would break standard CSV readers. Third, the plant code and material code columns currently mean nothing without a lookup table — in production you'd need master data enrichment to know that plant `1200` is a manufacturing site in Chennai and material `000000000050000234` is diesel. Fourth, negative rows need proper business logic — are they purchase reversals, credit memos, or data entry errors? The answer determines whether they should be ignored, inverted, or flagged. Fifth, date formats vary by system configuration and region, and a single date parser won't handle all of them.
 
-### Real-world formats researched
-Corporate travel systems such as SAP Concur expose itinerary data through APIs that return nested JSON objects describing trips, bookings, segments, airports, dates, cabins, fares, and related metadata. The itinerary structure can include multiple segment types such as air and ride, and air segments can carry start and end airport codes, cabin class, miles, carrier data, and timestamps.
+---
 
-### What the prototype chose
-The prototype narrows travel ingestion to flights represented as one simplified JSON object per trip record rather than trying to model the full itinerary graph.[1][11][2] That still satisfies the assignment’s requirement to handle a realistic travel source while keeping the parser understandable and the Scope 3 mapping easy to defend.[1]
+## 2. Utility portal electricity data
 
-### What was kept from the real shape
-The travel sample preserves the core elements that make emissions logic plausible: origin airport, destination airport, and cabin or travel class.[11] The implementation also reflects a real-world issue noted in the assignment: distance is not always directly provided, so systems sometimes need to infer trip distance from airport codes or route context.[1][2]
+### What I researched
 
-### What was simplified
-The prototype does not validate against a full airport reference dataset, and it uses a simple estimated-distance fallback plus a cabin multiplier instead of a proper route engine or methodology-backed emissions calculator.[2][12] It also ignores hotels, rail, ground transport, multi-segment itineraries, cancellations, ticket exchanges, and other itinerary complexity that appears in real Concur payloads.
+Utility data formats depend heavily on where you're pulling them from. The common export paths I looked at:
 
-### What would break in real life
-A real deployment would struggle with unknown airport codes, multi-leg trips, open-jaw itineraries, missing cabin information, partner-carrier edge cases, non-flight travel categories, and large historical backfills subject to API limits.[12] It would also need to decide whether emissions are computed per segment, per booked trip, per traveler, or per reimbursed expense line, because those choices affect both totals and audit defensibility.[1]
+- **Portal CSV exports** — Most utility self-service portals (BSES, BESCOM, Tata Power's business portal, and US equivalents like Pacific Gas & Electric's portal) let you export billing or usage history as a CSV. These typically include account number, meter ID, service address, billing period start and end, consumption in kWh, and billed amount. Some portals also offer interval data (15-minute or hourly readings).
+- **PDF bills** — The standard format for residential and small business customers. Contains all the same fields but requires OCR or structured PDF parsing to extract them. Much less reliable than CSV.
+- **Green Button** — An XML-based standard for utility data export used by some US utilities. Structured and machine-readable, but not universally supported.
+- **Utility APIs** — A few larger utilities and energy management platforms (like Urjanet) offer API-based data access. Clean but requires integration setup and often client cooperation.
 
-## Closing note
+I chose portal CSV for the same reason as SAP flat file: it's what facilities teams actually have. A sustainability lead asking their facilities manager for electricity data is going to get a CSV download from whatever portal the company uses to manage accounts, not an API connection.
 
-The three source implementations were designed to show research-informed realism without pretending to solve all source-system complexity.[1] The key principle across all three is consistent: preserve the raw source payload, normalize only what can be defended, surface obvious failures or suspicious records, and leave deeper enrichment for a later production phase.[7][2]
+The interesting complexity with utility data is in the billing period structure. Bills don't align with calendar months — a billing period might run from the 14th of one month to the 17th of the next. Some utilities send estimated reads followed by actual reads. Some meters have gap periods. Some accounts get zero-usage bills because of demand charges. These are all things the ingestion logic has to handle.
+
+### What the sample data looks like and why
+
+The sample utility CSV includes: account number, meter ID, billing start date, billing end date, usage in kWh, and billed amount. I deliberately included:
+
+- Normal rows covering roughly monthly periods with expected kWh values
+- A row with blank usage (should fail — no way to calculate emissions)
+- A row with an unusually large kWh spike (should be flagged suspicious — could be real but warrants review)
+- Rows where the billing period crosses a month boundary
+
+The ingestion logic applies a grid emission factor to produce CO2e from kWh, marks blank usage as FAILED, and marks anything above a spike threshold as SUSPICIOUS. The billing start and end dates are preserved in the raw payload so analysts can verify the period context.
+
+### What would break in a real deployment
+
+The main practical issues: different utilities format their CSVs differently, so column names and ordering would vary by client. Some utilities include multiple fuel types (electricity and gas from the same portal) in one export, and the parser currently assumes electricity only. The spike threshold is hardcoded, which doesn't account for the fact that a large manufacturing site has a completely different normal range than an office building — you'd want per-meter historical baselines. Multi-register meters (where the same meter records peak and off-peak usage separately) aren't handled. And if a client has dozens of sites and hundreds of meters, billing period management becomes much more complex — overlapping periods, re-bills, and estimated-vs-actual corrections would all need specific handling.
+
+---
+
+## 3. Corporate travel data (flights)
+
+### What I researched
+
+I looked at the Concur Itinerary API documentation and a few Navan developer resources. Corporate travel platforms expose itinerary data as nested JSON — a trip object containing booking-level and segment-level data. For air travel, a segment includes the origin and destination airports, cabin class, carrier, flight number, departure and arrival timestamps, and sometimes distance in miles. The itinerary structure can get complicated for multi-leg trips: a trip from Mumbai to New York might have a BOM-DXB segment and a DXB-JFK segment, each with their own cabin class and distance.
+
+For emissions purposes, the key fields are: origin airport code, destination airport code, cabin class (economy, business, first), and distance. Distance isn't always given — some systems only provide airport codes and you have to estimate distance from the route. Emission factors for flights are typically applied per passenger per kilometer and vary by cabin class (business class has roughly 2-3x the per-person impact of economy due to seat count and space allocation).
+
+I looked at the GHG Protocol's corporate travel guidance and DEFRA's business travel emission factors to understand how methodology actually works — it's per passenger-km, adjusted by cabin multiplier and sometimes by radiative forcing (which accounts for the warming effect of contrails at altitude).
+
+### What the sample data looks like and why
+
+The sample is a JSON file with one object per flight booking. Each object has: employee name, origin airport (IATA code), destination airport (IATA code), cabin class, and travel date. I deliberately included:
+
+- Normal routes with valid IATA codes (BOM-DEL, BOM-LHR, DEL-SIN)
+- Rows with invalid airport codes (`XYZ`, `ABC`, `999`, `ZZZ`) that should fail or be flagged
+- A mix of cabin classes (economy, business, first) to test the multiplier logic
+
+The ingestion logic uses a simplified distance estimation based on route region rather than a real geodesic calculation — a domestic Indian route gets one estimated distance, a long-haul international route gets another. The cabin multiplier is applied on top. Rows with invalid airport codes on both ends fail; rows with one questionable code get flagged suspicious.
+
+### What would break in a real deployment
+
+A lot. The main issues: the distance estimation is a rough approximation — for accurate carbon accounting you'd need actual route distances from an airport coordinates dataset or a routing API. Multi-segment itineraries need to be split into individual legs before calculating emissions, and the current model treats each JSON object as one trip rather than handling connecting flights. Invalid airport code handling is crude — in production you'd want a full IATA reference dataset so the system knows `JFK` is valid and `ZZZ` isn't, rather than relying on ad-hoc heuristics. The prototype also ignores hotels, ground transport, rail, and rental cars entirely, which are all legitimate Scope 3 categories. And for large enterprises with frequent travelers, the historical backfill case — where you're ingesting years of travel data in one go — would need pagination, batch processing, and probably some rate limiting if you're hitting a Concur API rather than processing a local file.

@@ -1,261 +1,191 @@
 # DECISIONS.md
 
-## Overview
+## What this file is
 
-This document records the main ambiguities in the assignment, the choices made in the prototype, why those choices were reasonable for a 4-day build, and what questions would be taken back to the PM in a real product discussion.[1][2] The goal of these decisions was not to model all ESG complexity, but to build a defensible prototype that shows judgment across ingestion, normalization, review, and auditability.[1]
+This is a record of every meaningful decision I had to make while building this prototype — the ambiguous stuff where the assignment didn't give a clear answer. For each one I've written down what I chose, why I chose it, and what I'd want to actually ask the PM before building the real version.
 
-## 1. Canonical model shape
+---
 
-### What was ambiguous
-The assignment required support for multiple source types with very different shapes, but it did not prescribe whether that should be represented as one universal activity table or as separate source-specific models.[1]
+## 1. One model vs. separate models per source
 
-### What was chosen
-A single canonical `ActivityRecord` model was used for ingested operational rows, regardless of whether they came from SAP, utility data, or travel data, with `source_type`, `raw_payload`, normalized fields, and review status stored on the same object.[2]
+**What was unclear:** The assignment said to handle three different source types with very different shapes. It didn't say whether those should share a single data model or live in separate tables.
 
-### Why this was chosen
-For a 4-day prototype, one reviewable record model is easier to explain and easier to display in a single analyst dashboard.[1][2] It also makes the ingestion pipeline clearer: each source parser transforms its raw shape into one common review object instead of requiring different screens and logic for each source family.[1][2]
+**What I chose:** One `ActivityRecord` model for everything — SAP, utility, and travel records all become the same object after ingestion.
 
-### What would be asked to the PM
-- Do analysts review SAP, utility, and travel records in one queue in the real product, or do they expect source-specific queues?[1]
-- Should procurement, fuel, electricity, flights, hotels, and ground transport eventually become separate domain models?[1]
-- Is the long-term goal audit explainability first, or source fidelity first?[1]
+**Why:** For a prototype, the whole point is showing the analyst review and audit workflow end-to-end. If I had three separate models, I'd need three separate review queues, three sets of API endpoints, and a dashboard that somehow aggregates across all of them. A single canonical model is easier to build, easier to demonstrate, and easier to explain. Every record — regardless of source — has a status, can be reviewed, and has an audit trail.
 
-## 2. Multi-tenancy scope
+**What I'd ask the PM:** Do analysts review SAP, utility, and travel records in the same queue, or do they work in source-specific workflows? If the real product has separate queues per source, that might justify separate models. Also worth asking: is long-term audit explainability the priority, or is source-level fidelity more important to the clients?
 
-### What was ambiguous
-The brief said the model must support multi-tenancy, but it did not define whether that meant a full tenant architecture with user-role separation or simply record-level client segregation.[1]
+---
 
-### What was chosen
-A lightweight record-level approach was used, where records carry client ownership through client/company fields and the API/UI filter by client context rather than implementing a full tenant table and auth model.[2]
+## 2. Multi-tenancy approach
 
-### Why this was chosen
-That decision keeps the prototype focused on ingestion, review workflow, and audit history, which are the core evaluation areas in the assignment.[1] A full tenant architecture would have consumed a large share of the project time without improving the core demo of realistic data normalization and analyst review.[1]
+**What was unclear:** The brief said multi-tenancy is required, but didn't define what that means in practice. Full tenant isolation? Just record-level client separation?
 
-### What would be asked to the PM
-- Is the expected enterprise client model one company per workspace, or multiple legal entities under one tenant?[1]
-- Do analysts need cross-client access, or should every user be tenant-scoped?[1]
-- Should client metadata live as its own first-class model in the production schema?[1]
+**What I chose:** Record-level ownership via a `company_name` field on `ActivityRecord`, with API and UI filtering on that field.
 
-## 3. SAP format selection
+**Why:** Building a real tenant architecture — dedicated client tables, user-role scoping, per-tenant auth boundaries — would have eaten most of the 4 days. The core evaluation criteria are ingestion, normalization, review workflow, and audit trail. The tenant question is real but secondary, and the record-level approach still demonstrates the concept without needing a full auth system. The schema is also designed so adding a proper `Client` FK later is straightforward.
 
-### What was ambiguous
-The assignment explicitly said SAP could realistically appear as an IDoc, flat file, OData service, or BAPI, and asked for a justified subset.[1] There was no single correct format to build against.[1]
+**What I'd ask the PM:** Is each enterprise client one company, or do they have multiple legal entities under one account? Do analysts ever need to see records across clients, or should everyone be tenant-scoped? If cross-client access is needed, the `company_name` field approach breaks down quickly.
 
-### What was chosen
-The prototype handles SAP as a flat CSV export with columns such as plant code, posting date, material code, quantity, unit, and amount.[3][2]
+---
 
-### Why this was chosen
-A flat SAP extract is the most practical prototype choice because it is easy to fabricate realistically, easy to ingest with Django management commands, and still shows the messy realities the assignment cares about: cryptic codes, strange units, negative rows, and invalid entries.[1][3][2] It also mirrors the kind of downstream export many non-engineering operations teams actually share internally.[3]
+## 3. SAP export format
 
-### What was intentionally ignored
-The prototype does not implement IDoc parsing, BAPI integration, SAP authentication, plant lookup enrichment, or German header variants beyond the simplified CSV structure.[1][3]
+**What was unclear:** The assignment listed IDoc, flat file, OData, and BAPI as realistic SAP export options and said to pick one and justify it. No correct answer was given.
 
-### What would be asked to the PM
-- Which SAP export path is most common in the target customer segment: flat file, middleware extract, or direct API?[1]
-- Are plant codes and material codes supposed to be resolved through master data tables?[3]
-- Should negative SAP rows be treated as returns/credits rather than automatically suspicious?[3][2]
+**What I chose:** A flat CSV export modeled after a SAP procurement/fuel extract.
+
+**Why:** A flat file is what a facilities or procurement team would actually email over during early client onboarding — before anyone has set up a proper ERP integration. It's also the easiest format to fabricate realistically and to test against. Most importantly, it still captures all the SAP quirks the assignment is actually testing for: cryptic material codes, inconsistent units, negative rows, and values that need manual interpretation.
+
+**What I'd ask the PM:** Which export path do target clients actually use — manual file drops, middleware extracts, or direct OData? If most clients come through a systems integrator, the flat-file assumption could be wrong from day one. Also: should negative rows be treated as purchase reversals/credits, or is negative quantity always suspicious?
+
+---
 
 ## 4. SAP subset handled
 
-### What was ambiguous
-SAP procurement/fuel data can include many categories, currencies, units, and internal codes, so it was unclear how much real-world complexity needed to be included in the prototype.[1]
+**What was unclear:** SAP procurement data spans a huge number of material categories, cost centers, internal orders, and currencies. The assignment didn't define how much of that needed to be covered.
 
-### What was chosen
-The SAP subset was limited to fuel-like materials and fuel-adjacent records with quantity fields, units, and a simple emissions calculation path, including deliberate bad rows such as negative quantities and unknown units.[3][2]
+**What I chose:** Fuel-like materials only — diesel, petrol, and similar — with quantity, unit, and a simple emissions path. Deliberate bad rows are included too (negative quantities, unknown units, blank values).
 
-### Why this was chosen
-This subset is enough to demonstrate Scope 1 classification, unit normalization, suspicious row detection, failed parsing, and source-of-truth retention without building a full procurement ontology.[1][3][2]
+**Why:** This subset is enough to show Scope 1 classification, unit normalization, failure detection, suspicious row flagging, and raw payload preservation without needing to build a full procurement ontology. The goal was realism in the ingestion pipeline, not coverage of all SAP material families.
 
-### What was intentionally ignored
-The prototype does not distinguish between dozens of material classes, cost center logic, internal order hierarchies, procurement-versus-consumption semantics, or fuel-specific emission factors by material type.[3][2]
+**What I'd ask the PM:** Are we tracking purchased fuel, consumed fuel, or both? Should lubricant and heating oil be in the same emissions calculation family as diesel? Does the finance team care about the monetary value column in this stage, or is usage/quantity all that matters for emissions?
 
-### What would be asked to the PM
-- Is the business expectation to track purchased fuel, consumed fuel, or both?[1]
-- Should lubricant and heating oil stay in the same calculation family as diesel/petrol for the prototype?[3]
-- Does finance care about the monetary value column now, or is it just useful context for analysts?[3]
+---
 
-## 5. SAP unit normalization behavior
+## 5. Unit normalization for SAP
 
-### What was ambiguous
-The brief said unit normalization matters, but it did not define which units should be accepted, converted, rejected, or marked suspicious.[1]
+**What was unclear:** The brief said unit normalization matters but gave no definition of which units to accept, convert, or reject.
 
-### What was chosen
-The ingestion logic accepts liters directly, converts `GAL` to liters, and treats unrecognized or malformed units as parsing failures or suspicious cases depending on how the row behaves during ingestion.[3][2]
+**What I chose:** Liters are accepted as-is. `GAL` is converted to liters. Anything else — `LITR`, `XYZ`, `??`, `BBLBAD` — either fails or gets flagged suspicious depending on how broken the row is.
 
-### Why this was chosen
-This choice demonstrates the exact kind of judgment the assignment asks for: normalize the units that are common and defensible, but fail unknown formats rather than inventing conversions that could silently corrupt carbon numbers.[1][3][2] The sample SAP file already includes realistic messy values such as `L`, `GAL`, `LITR`, `??`, `XYZ`, and `BBLBAD`, so the parser needed a conservative strategy.[3]
+**Why:** This reflects a real judgment call: normalize the units you can defend, and fail the ones you can't rather than inventing a conversion that might silently corrupt carbon numbers downstream. The sample SAP file includes all of these edge cases deliberately, so the parser needed a conservative strategy.
 
-### What would be asked to the PM
-- Which units should be recognized for this client at launch?[3]
-- Should `LITR` be normalized as an accepted synonym everywhere?[3]
-- When a unit is unknown, should the row hard-fail or go into a manual analyst queue?[1][3]
+**What I'd ask the PM:** What's the full list of units this client's SAP system actually uses? Is `LITR` a recognized synonym that should be normalized automatically? When a unit is unknown, is the right behavior to hard-fail the row or put it in a manual analyst queue with a flag?
 
-## 6. Emission factor simplicity for SAP
+---
 
-### What was ambiguous
-The assignment required carbon calculation but did not define whether the prototype should use source-specific factors, fuel-specific factors, regional factors, or one simplified factor.[1]
+## 6. Emission factors for SAP
 
-### What was chosen
-A simple fixed factor was used for SAP fuel records after normalization to liters.[2]
+**What was unclear:** Carbon calculation is required, but the assignment didn't specify whether to use fuel-specific factors, regional factors, or a simplified fixed factor.
 
-### Why this was chosen
-The hard part of the assignment is ingestion realism and analyst review, not building a full emissions methodology engine.[1] A single transparent factor keeps the prototype explainable while still demonstrating how normalized operational data becomes a common CO2e number in the review dashboard.[1][2]
+**What I chose:** A single fixed emission factor applied after normalizing quantity to liters.
 
-### What would be asked to the PM
-- Is the prototype expected to demonstrate methodological realism or just data workflow realism?[1]
-- Do clients expect factor libraries by region, fuel type, and reporting standard version?[1]
-- Should the factor source itself be stored for audit defensibility?[1]
+**Why:** The assignment is explicit that the hard part is dealing with messy source data, not building an emissions methodology engine. A simple transparent factor keeps the calculations defensible and easy to explain — it's easy to trace how a liter value becomes a CO2e number in the review dashboard. A factor library with regional and fuel-type variations would've been a lot of work for something that isn't the core evaluation criterion.
 
-## 7. Utility format selection
+**What I'd ask the PM:** Is the prototype expected to show methodological realism, or just data workflow realism? Do clients have region-specific factor requirements? Should the source of the emission factor itself be stored on the record for audit defensibility?
 
-### What was ambiguous
-The brief allowed utility data to be modeled as a portal CSV export, PDF bill, or API integration.[1]
+---
 
-### What was chosen
-The prototype uses a utility portal CSV with account number, meter ID, billing start, billing end, usage in kWh, and total billed amount.[4][2]
+## 7. Utility data format
 
-### Why this was chosen
-A CSV export is realistic for facilities teams and easier to prototype than OCRing PDFs or integrating utility-specific APIs.[1][4] It also lets the data include billing periods and usage gaps, which are exactly the operational quirks the assignment highlights.[1][4]
+**What was unclear:** The assignment allowed utility data as a portal CSV, a PDF bill, or an API integration. No preference given.
 
-### What was intentionally ignored
-The prototype does not parse PDFs, call utility APIs, allocate usage across calendar months, or model tariff line-items beyond a total cost field.[1][4]
+**What I chose:** A utility portal CSV export with account number, meter ID, billing start, billing end, kWh usage, and billed amount.
 
-### What would be asked to the PM
-- Do target clients usually upload CSV exports manually, or is a bill ingestion workflow more important?[1]
-- Is billing cost needed for analytics, or only usage and emissions?[4]
-- Should meter IDs map to buildings or sites in the final product?[4]
+**Why:** CSV is what facilities teams realistically have access to through self-service utility portals. It supports deterministic parsing, and the format naturally includes the billing-period fields that create the real-world complexity the assignment mentions (gaps, anomalies, overlapping periods). PDF parsing would've required an OCR step that has nothing to do with the core evaluation.
+
+**What I'd ask the PM:** Do clients typically upload these manually or is there an automated pull? Is billing cost needed for analysis, or only kWh and emissions? Should meter IDs eventually map to specific buildings or sites in the production schema?
+
+---
 
 ## 8. Utility anomaly handling
 
-### What was ambiguous
-The assignment mentioned missing usage, spikes, and billing periods that do not line up neatly, but it did not say whether these should fail ingestion or remain reviewable.[1]
+**What was unclear:** The brief mentions missing usage, spikes, and non-aligned billing periods, but didn't say whether anomalous rows should fail or just get flagged.
 
-### What was chosen
-Blank usage values are treated as failed records, while very high electricity consumption spikes are marked suspicious but still ingested for analyst review.[4][2]
+**What I chose:** Blank usage values are FAILED. Unusually large consumption spikes are SUSPICIOUS but still ingested.
 
-### Why this was chosen
-This creates a useful distinction between impossible-to-calculate records and plausible-but-concerning records.[1][2] A blank usage cell cannot produce a defensible emissions number, while an unusually large kWh figure may still be real and should be surfaced to an analyst rather than silently discarded.[4][2]
+**Why:** This distinction matters. A blank usage field genuinely cannot produce a defensible emissions number — there's nothing to calculate. But an extremely high kWh reading might just be a large site or an unusual billing period — throwing it away would mean silently losing data that could be real. Flagging it as suspicious puts it in front of an analyst who can make the judgment call.
 
-### What would be asked to the PM
-- What threshold should define a suspicious electricity spike for this client’s footprint?[4][2]
-- Should zero usage with nonzero cost be failed, suspicious, or accepted as demand charge behavior?[4]
-- Do analysts want heuristics based on historical meter baselines rather than one hard-coded threshold?[4]
+**What I'd ask the PM:** What threshold should define a suspicious spike for this specific client? Should zero usage with nonzero cost be failed, or could that be a legitimate demand charge? Do analysts want dynamic baselines per meter, or is a hardcoded threshold acceptable?
 
-## 9. Utility period treatment
+---
 
-### What was ambiguous
-The brief specifically called out that utility billing periods often do not align with calendar months, but it did not say whether the prototype had to allocate usage proportionally across reporting periods.[1]
+## 9. Utility billing periods
 
-### What was chosen
-The prototype preserves bill start and end context in the raw source data but treats each utility export row as one activity record instead of prorating usage across months.[4][2]
+**What was unclear:** The assignment specifically called out that billing periods often don't align with calendar months, but didn't say whether the prototype had to handle pro-rating.
 
-### Why this was chosen
-Month-splitting logic would add complexity without improving the core prototype’s ability to demonstrate ingestion, review, and audit traceability.[1] The single-row treatment is easier to explain and still preserves the original billing-period shape the analyst received.[4]
+**What I chose:** Each billing row is kept as a single activity record. The start and end dates are preserved in the raw payload but there's no month-splitting logic.
 
-### What would be asked to the PM
-- Do auditors or downstream reports require monthly allocation, or is row-level traceability enough for the prototype?[1]
-- Should allocation happen at ingestion time or at reporting time?[1]
-- Are there client-specific rules for overlapping or estimated bills?[4]
+**Why:** Pro-rating usage across calendar months would add a fair amount of complexity — you'd need to decide whether to split at ingestion time or reporting time, how to handle partially overlapping periods, and what to do with estimated reads. None of that improves the core prototype demonstration. The important thing is that the original billing context is preserved so analysts and auditors can see what the source data actually said.
 
-## 10. Travel format selection
+**What I'd ask the PM:** Do auditors require monthly allocation, or is row-level traceability sufficient? If allocation is needed, should it happen at ingestion or at reporting/export time? Are there client-specific rules for overlapping or estimated bills?
 
-### What was ambiguous
-The assignment suggested platforms like Concur or Navan and noted that travel data may include flights, hotels, and ground transport with uneven detail.[1]
+---
 
-### What was chosen
-The prototype handles only flight data in JSON form, with one object per trip containing employee, origin airport, destination airport, and cabin class.[5][2]
+## 10. Travel data format
 
-### Why this was chosen
-Flights are the cleanest subset for a 4-day prototype because they clearly fit Scope 3 and can plausibly be modeled from corporate travel tools without building multiple travel-category calculators.[1][5] The JSON format also feels closer to modern SaaS export or API payloads than a flat CSV would.[5]
+**What was unclear:** The assignment mentioned Concur and Navan as examples, with flights, hotels, and ground transport as categories. No format prescribed.
 
-### What was intentionally ignored
-Hotels, rail, rental cars, taxis, per-diem logic, cancellations, refund flows, and multi-segment itinerary expansion were all left out of the prototype.[1][5]
+**What I chose:** Flights only, in JSON format, with one object per trip containing employee, origin airport, destination airport, and cabin class.
 
-### What would be asked to the PM
-- Is flight activity enough for the assignment review, or is a second travel mode expected?[1]
-- In production, would travel ingestion come from API pull, scheduled export, or manual upload?[1]
-- Should connecting flights be modeled as individual segments or one itinerary-level journey?[5]
+**Why:** Flights are the cleanest subset for demonstrating a Scope 3 ingestion path. They have a clear emissions methodology, they fit naturally in JSON (closer to what a modern SaaS API would return), and they don't require building multiple separate emission calculators for different travel categories. I included intentionally bad airport codes (XYZ, ABC, 999) to show that the parser handles imperfect source data gracefully.
+
+**What I'd ask the PM:** Is flights-only sufficient for the review, or is a second travel mode expected in the demo? In production, would travel data come from an API pull, scheduled export, or manual upload? Should connecting flights be individual segments or one itinerary-level record?
+
+---
 
 ## 11. Travel distance estimation
 
-### What was ambiguous
-The assignment noted that travel systems do not always provide distances and sometimes only provide airport codes.[1] It did not define how much realism was needed in the prototype’s distance calculation.
+**What was unclear:** The assignment notes that distances aren't always provided — sometimes you only get airport codes. No guidance on how precise the estimate needs to be.
 
-### What was chosen
-The ingestion logic uses a simplified estimated mileage rule rather than a real airport-distance lookup service, and applies a cabin multiplier so premium seats have higher impact than economy.[5][2]
+**What I chose:** A simplified estimated-distance fallback based on route type, plus a cabin class multiplier so business and first class have higher per-person impact than economy.
 
-### Why this was chosen
-This keeps the prototype focused on shape handling and reviewability rather than external API integration.[1] The sample JSON intentionally includes invalid airport-like values such as `XYZ`, `ABC`, `999`, and `ZZZ`, so the travel parser needed to tolerate imperfect source data while still demonstrating that distance-related uncertainty exists in real travel systems.[5]
+**Why:** Building a real airport geodesic distance calculator or calling an external API would've been a disproportionate effort for a prototype. The more important thing to demonstrate is that the parser handles cases where distance isn't given — which it does, while still producing a plausible CO2e estimate. The cabin multiplier also shows that the ingestion logic is thinking about methodology, not just plugging in a flat factor.
 
-### What would be asked to the PM
-- Is approximate travel carbon acceptable for the prototype, or should airport geodesic accuracy be part of the assessment?[1]
-- Should invalid airport codes fail ingestion outright or be routed to analyst review?[5]
-- Do clients care about cabin multipliers, radiative forcing, or route-class logic at this stage?[1]
+**What I'd ask the PM:** Is approximate travel carbon acceptable at this stage, or does airport-level route accuracy matter to clients? Should invalid airport codes fail ingestion entirely, or go to analyst review? Do clients care about radiative forcing adjustments at this stage?
+
+---
 
 ## 12. Review workflow states
 
-### What was ambiguous
-The assignment said analysts should see what failed, what looks suspicious, and approve rows before they are locked for audit, but it did not prescribe a specific state machine.[1]
+**What was unclear:** The assignment said analysts should be able to see what failed, what's suspicious, and approve rows, but gave no prescribed state machine.
 
-### What was chosen
-The workflow was simplified to four statuses: `PENDING`, `APPROVED`, `FAILED`, and `SUSPICIOUS`.[2]
+**What I chose:** Four states — `PENDING`, `APPROVED`, `FAILED`, and `SUSPICIOUS`.
 
-### Why this was chosen
-Those four states are enough to express the key review outcomes the assignment names explicitly.[1][2] They also map cleanly to analyst mental models in the React dashboard without requiring a more complicated lifecycle like draft, submitted, escalated, reopened, superseded, or archived.[1]
+**Why:** These four states cover exactly what the assignment asks for without inventing complexity that isn't needed. `PENDING` is the default after ingestion. `FAILED` handles rows that can't be parsed or calculated. `SUSPICIOUS` surfaces rows that parsed successfully but look wrong. `APPROVED` locks a row after analyst sign-off. That's the full analyst workflow in four clean states that map directly to what the dashboard needs to show.
 
-### What would be asked to the PM
-- Once approved, should a record be truly immutable or just soft-locked?[1]
-- Can suspicious records still be approved with justification?[1]
-- Should failed records be editable, re-ingestable, or only replaceable by a new row version?[1]
+**What I'd ask the PM:** Once a record is approved, is it truly immutable or just soft-locked with a reason to reopen? Can suspicious records be approved with a justification note? Can failed records be edited and reprocessed, or does a bad row just stay failed permanently?
+
+---
 
 ## 13. Audit log granularity
 
-### What was ambiguous
-The assignment required an audit trail, but it did not specify whether every field edit should be logged, only status transitions, or entire record snapshots.[1]
+**What was unclear:** The assignment requires an audit trail but doesn't define whether to log every field mutation or just status transitions.
 
-### What was chosen
-The prototype logs before-and-after state snapshots for record changes through `AuditTrailLog`, focusing on defensible review actions rather than exhaustive per-field event sourcing.[2]
+**What I chose:** Before-and-after state snapshots on status change events. Not full event sourcing, not per-field mutation logs.
 
-### Why this was chosen
-That level of logging is enough to answer the audit questions that matter most in the prototype: what changed, when it changed, and who did it.[1][2] A full event-sourced architecture would be heavier than necessary for the assignment.[1]
+**Why:** The audit questions that actually matter in this context are: what changed, when, and who did it? Before-and-after snapshots on status changes answer all three without requiring an event-sourced architecture that would've been significantly more complex to build and maintain. If an auditor or reviewer needs to trace what happened to a record, they can walk the `AuditTrailLog` and reconstruct the full review history.
 
-### What would be asked to the PM
-- Do auditors need every field mutation, or are review and sign-off events enough?[1]
-- Should raw payload edits be allowed at all?[1]
-- How long must audit data be retained in the real product?[1]
+**What I'd ask the PM:** Do auditors actually need per-field mutation logs, or is review event history sufficient? Should raw payload edits ever be allowed? How long does audit data need to be retained?
+
+---
 
 ## 14. Ingestion mechanism
 
-### What was ambiguous
-The brief allowed file upload, API pull, or manual paste depending on source shape.[1]
+**What was unclear:** The assignment said file upload, API pull, or manual paste are all acceptable — just justify the choice.
 
-### What was chosen
-The prototype uses a Django management command to ingest local fabricated files for all three sources instead of building a file upload UI or source connectors.[2]
+**What I chose:** A Django management command that parses local source files and ingests them into the database.
 
-### Why this was chosen
-This keeps attention on realistic source handling and data modeling instead of spending project time on frontend upload mechanics.[1] Since the assignment explicitly values judgment over feature count, a management-command ingestion path is a defensible prototype shortcut as long as the sample files are realistic and the logic is explainable.[1][2]
+**Why:** The assignment is explicit that it values data modeling judgment over feature count. A file upload UI would've required file storage, progress states, validation previews, error recovery flows, and frontend upload orchestration — all of which take time away from the actual ingestion logic. A management command proves the important thing: that the system can parse realistic source files into the review model. The ingestion logic itself is what matters, not the UI around it.
 
-### What would be asked to the PM
-- Is the expected demo flow okay with seeded data, or do reviewers expect interactive uploads in the product walkthrough?[1]
-- Which ingestion mode matters most in real client onboarding: bulk file drop, scheduled pulls, or analyst-assisted correction?[1]
-- Should failed rows be exported back to clients for remediation?[1]
+**What I'd ask the PM:** Is the demo flow okay with seeded data, or do reviewers need to actually upload a file to see it? Which ingestion mode matters most for real client onboarding — bulk file drop, scheduled API pulls, or analyst-assisted corrections? Should failed rows be exported back to clients for them to fix?
+
+---
 
 ## 15. Analyst dashboard scope
 
-### What was ambiguous
-The assignment asked for a review dashboard, but did not prescribe whether the UI should be a minimal admin tool or a more polished enterprise-facing analyst interface.[1]
+**What was unclear:** The assignment asked for a review dashboard but didn't define whether it should be minimal (basically a Django admin) or more polished.
 
-### What was chosen
-The frontend was built as an analyst-oriented dashboard with overview metrics, source breakdown, scope breakdown, review queue, and audit log views.[1]
+**What I chose:** A purpose-built React dashboard with overview metrics, source and scope breakdowns, a review queue, and an audit log view.
 
-### Why this was chosen
-That UI shape makes it easier to demonstrate the assignment’s core questions in one place: what came in, what failed, what looks suspicious, and what has been approved.[1] It also helps a non-engineer reviewer understand the app quickly, which aligns with the grading criterion around analyst UX.[1]
+**Why:** A Django admin-style interface technically satisfies the requirement, but it doesn't demonstrate that I thought about how an analyst actually uses this tool. The dashboard I built lets a reviewer immediately see the big picture (how many records came in, how many failed, scope distribution) and then drill into individual records to review and approve them. That maps directly to what the assignment calls out as analyst UX.
 
-### What would be asked to the PM
-- Is the real user primarily an internal analyst, a client sustainability lead, or an auditor?[1]
-- Should the dashboard optimize more for throughput, explainability, or executive summary reporting?[1]
-- Which KPI matters most in the first version: total emissions, review backlog, failure rate, or audit readiness?[1]
+**What I'd ask the PM:** Is the primary user an internal analyst, a client sustainability lead, or an external auditor? Should the dashboard optimize for review throughput, explainability, or executive-level summary? Which KPI matters most to clients at this stage — total emissions, backlog size, failure rate, or audit readiness?
 
-## Closing note
+---
 
-The consistent rule across these choices was to prefer explainability over fake completeness.[1] Where the assignment was ambiguous, the prototype chose realistic but narrow subsets that demonstrate ingestion messiness, normalization, analyst review, and auditability without pretending to solve every real-world ESG edge case in four days.[1][2]
+## One overarching principle
+
+Looking across all of these decisions, the consistent logic was: pick the narrowest, most defensible version of each requirement rather than faking completeness. Every ambiguous choice was resolved by asking "what's the least I need to build to demonstrate this requirement clearly?" rather than "what would the full production version look like?" That keeps the prototype explainable and makes every decision easier to defend.
