@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
 import {
   AreaChart,
   Area,
@@ -20,18 +20,16 @@ import {
   ShieldCheck,
   LayoutDashboard,
   ClipboardList,
-  BarChart3,
   FileText,
-  Sparkles,
   Trees,
   Factory,
   Wind,
   Database,
-  Plane
+  Plane,
+  Building2
 } from 'lucide-react'
 import './App.css'
 
-// ── Animated Counter Component ───────────────────────────────────────
 function AnimatedNumber({ value, decimals = 0 }) {
   const [display, setDisplay] = useState(0)
   const raf = useRef(null)
@@ -54,63 +52,64 @@ function AnimatedNumber({ value, decimals = 0 }) {
         raf.current = requestAnimationFrame(tick)
       }
     }
+
     raf.current = requestAnimationFrame(tick)
-    return () => { if (raf.current) cancelAnimationFrame(raf.current) }
+    return () => {
+      if (raf.current) cancelAnimationFrame(raf.current)
+    }
   }, [value])
 
   return <>{decimals > 0 ? display.toFixed(decimals) : Math.round(display).toLocaleString()}</>
 }
 
-// ── Main Workspace Application ───────────────────────────────────────
 export default function App() {
   const [filter, setFilter] = useState('All')
-  const [activeTab, setActiveTab] = useState('Review Queue')
+  const [activeTab, setActiveTab] = useState('Overview')
   const [rows, setRows] = useState([])
+  const [auditLogs, setAuditLogs] = useState([])
   const [loading, setLoading] = useState(true)
   const [fadeOut, setFadeOut] = useState(false)
 
   const API_BASE = 'http://127.0.0.1:8000'
+  const CLIENT_CODE = 'ENT_A'
 
-  const emissionsData = [
-    { month: 'Jan', carbon: 240 },
-    { month: 'Feb', carbon: 300 },
-    { month: 'Mar', carbon: 210 },
-    { month: 'Apr', carbon: 400 },
-    { month: 'May', carbon: 350 },
-    { month: 'Jun', carbon: 520 },
-    { month: 'Jul', carbon: 470 }
-  ]
+  const COLORS = ['#47d286', '#7ff2b3', '#8ed8ff', '#d9ffe8']
 
-  const sourceData = [
-    { name: 'SAP', value: 45 },
-    { name: 'Travel', value: 25 },
-    { name: 'Utilities', value: 20 },
-    { name: 'Logistics', value: 10 }
-  ]
+  const scopeLabels = {
+    'Scope 1': 'Direct operations',
+    'Scope 2': 'Purchased energy',
+    'Scope 3': 'Value chain'
+  }
 
-  const impactData = [
-    { type: 'Scope 1', amount: 65 },
-    { type: 'Scope 2', amount: 42 },
-    { type: 'Scope 3', amount: 88 }
-  ]
+  const getScopeLabel = (scope) => {
+    if (!scope) return 'Unassigned'
+    return scopeLabels[scope] || scope
+  }
 
-  const COLORS = [
-    '#47d286',
-    '#7ff2b3',
-    '#8ed8ff',
-    '#d9ffe8'
-  ]
+  const formatActionType = (actionType) => {
+    if (!actionType) return 'AUDIT EVENT'
+    return actionType.replace(/_/g, ' ').toUpperCase()
+  }
 
   const fetchRecords = () => {
-    fetch(`${API_BASE}/api/records/`)
+    fetch(`${API_BASE}/api/records/?client_code=${CLIENT_CODE}`)
       .then((res) => res.json())
       .then((data) => {
-        const formattedData = data.map(record => ({
+        const formattedData = data.map((record) => ({
           id: record.id,
+          clientName: record.client_name || 'Unknown Client',
+          clientCode: record.client_code || 'N/A',
           source: record.source_type,
           scope: record.scope_category || 'Unassigned',
-          quantity: record.normalized_value ? `${record.normalized_value.toLocaleString()} ${record.normalized_unit}` : '—',
-          carbon: record.calculated_co2e_kg ? `${record.calculated_co2e_kg.toLocaleString()} kg CO₂e` : '—',
+          quantity:
+            record.normalized_value !== null && record.normalized_value !== undefined
+              ? `${record.normalized_value.toLocaleString()} ${record.normalized_unit}`
+              : '—',
+          carbon:
+            record.calculated_co2e_kg !== null && record.calculated_co2e_kg !== undefined
+              ? `${record.calculated_co2e_kg.toLocaleString()} kg CO₂e`
+              : '—',
+          carbonValue: record.calculated_co2e_kg || 0,
           status: record.status.charAt(0) + record.status.slice(1).toLowerCase(),
           note: record.review_notes || 'System integrity check passed'
         }))
@@ -119,8 +118,27 @@ export default function App() {
       .catch((err) => console.error('Error fetching data:', err))
   }
 
+  const fetchAuditLogs = () => {
+    fetch(`${API_BASE}/api/audit-logs/?client_code=${CLIENT_CODE}`)
+      .then((res) => res.json())
+      .then((data) => {
+        const formattedLogs = data.map((log) => ({
+          id: log.id,
+          recordId: log.record,
+          actionType: log.action_type,
+          performedBy: log.performed_by,
+          previousState: log.previous_state,
+          newState: log.new_state,
+          timestamp: log.timestamp
+        }))
+        setAuditLogs(formattedLogs)
+      })
+      .catch((err) => console.error('Error fetching audit logs:', err))
+  }
+
   useEffect(() => {
     fetchRecords()
+    fetchAuditLogs()
 
     const fadeTimer = setTimeout(() => {
       setFadeOut(true)
@@ -137,32 +155,75 @@ export default function App() {
   }, [])
 
   const handleApprove = (id) => {
-    fetch(`${API_BASE}/api/records/${id}/approve/`, { method: 'POST' }).then(() => fetchRecords())
+    fetch(`${API_BASE}/api/records/${id}/approve/`, { method: 'POST' }).then(() => {
+      fetchRecords()
+      fetchAuditLogs()
+    })
   }
 
   const handleReject = (id) => {
-    fetch(`${API_BASE}/api/records/${id}/reject/`, { method: 'POST' }).then(() => fetchRecords())
+    fetch(`${API_BASE}/api/records/${id}/reject/`, { method: 'POST' }).then(() => {
+      fetchRecords()
+      fetchAuditLogs()
+    })
   }
 
-  const filteredRows = rows.filter(row =>
-    filter === 'All' || row.status.toLowerCase() === filter.toLowerCase()
+  const filteredRows = rows.filter(
+    (row) => filter === 'All' || row.status.toLowerCase() === filter.toLowerCase()
   )
 
   const totalRecords = rows.length
   const pendingRecords = rows.filter((r) => r.status.toLowerCase() === 'pending').length
   const failedRecords = rows.filter((r) => r.status.toLowerCase() === 'failed').length
+  const suspiciousRecords = rows.filter((r) => r.status.toLowerCase() === 'suspicious').length
   const approvedRecords = rows.filter((r) => r.status.toLowerCase() === 'approved').length
+
+  const totalCarbon = rows.reduce((sum, row) => sum + row.carbonValue, 0)
+  const activeClientName = rows[0]?.clientName || 'Enterprise Client A'
+
+  const scopeImpactData = useMemo(() => {
+    const grouped = rows.reduce((acc, row) => {
+      const label = getScopeLabel(row.scope)
+      acc[label] = (acc[label] || 0) + row.carbonValue
+      return acc
+    }, {})
+
+    return Object.entries(grouped).map(([type, amount]) => ({
+      type,
+      amount: Number(amount.toFixed(2))
+    }))
+  }, [rows])
+
+  const sourceBreakdownData = useMemo(() => {
+    const grouped = rows.reduce((acc, row) => {
+      const key = row.source || 'Unknown'
+      acc[key] = (acc[key] || 0) + row.carbonValue
+      return acc
+    }, {})
+
+    return Object.entries(grouped).map(([name, value]) => ({
+      name,
+      value: Number(value.toFixed(2))
+    }))
+  }, [rows])
+
+  const statusAnalyticsData = useMemo(() => {
+    return [
+      { month: 'Pending', carbon: pendingRecords },
+      { month: 'Approved', carbon: approvedRecords },
+      { month: 'Failed', carbon: failedRecords },
+      { month: 'Suspicious', carbon: suspiciousRecords }
+    ]
+  }, [pendingRecords, approvedRecords, failedRecords, suspiciousRecords])
 
   if (loading) {
     return (
       <div className={`opening-screen ${fadeOut ? 'opening-fade' : ''}`}>
-        {/* BACKGROUND */}
         <div className="opening-bg" />
         <div className="opening-glow glow-a" />
         <div className="opening-glow glow-b" />
         <div className="opening-glow glow-c" />
 
-        {/* FLOATING PARTICLES */}
         <div className="particles">
           {[...Array(18)].map((_, i) => (
             <span
@@ -177,9 +238,7 @@ export default function App() {
           ))}
         </div>
 
-        {/* CONTENT */}
         <div className="opening-content">
-          {/* EARTH */}
           <div className="opening-earth-wrap">
             <div className="opening-earth-glow" />
             <div className="opening-earth" />
@@ -188,14 +247,12 @@ export default function App() {
             <div className="opening-ring ring-three" />
           </div>
 
-          {/* TEXT */}
           <div className="opening-text">
-            <span className="opening-eyebrow">ENTERPRISE SUSTAINABILITY INTELLIGENCE</span>
-            <h1>Breathe<span>ESG</span></h1>
-            <p>Building a more breathable future through magical climate intelligence.</p>
+            <span className="opening-eyebrow">Environmental Reflection</span>
+            <h1>The Earth is what we all have in common.</h1>
+            <p>— Wendell Berry</p>
           </div>
 
-          {/* LOADER */}
           <div className="loading-line">
             <div className="loading-line-fill" />
           </div>
@@ -206,19 +263,19 @@ export default function App() {
 
   return (
     <div className="app">
-      {/* BACKGROUND */}
       <div className="bg-glow glow1" />
       <div className="bg-glow glow2" />
       <div className="bg-glow glow3" />
 
-      {/* SIDEBAR */}
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-icon">
             <Leaf size={26} strokeWidth={2.4} />
           </div>
           <div>
-            <h2>Breathe<span>ESG</span></h2>
+            <h2>
+              Breathe<span>ESG</span>
+            </h2>
             <p>Climate Intelligence</p>
           </div>
         </div>
@@ -231,6 +288,7 @@ export default function App() {
             <LayoutDashboard size={18} />
             Overview
           </button>
+
           <button
             className={activeTab === 'Review Queue' ? 'active' : ''}
             onClick={() => setActiveTab('Review Queue')}
@@ -238,13 +296,7 @@ export default function App() {
             <ClipboardList size={18} />
             Review Queue
           </button>
-          <button
-            className={activeTab === 'Analytics' ? 'active' : ''}
-            onClick={() => setActiveTab('Analytics')}
-          >
-            <BarChart3 size={18} />
-            Analytics
-          </button>
+
           <button
             className={activeTab === 'Audit Logs' ? 'active' : ''}
             onClick={() => setActiveTab('Audit Logs')}
@@ -257,30 +309,28 @@ export default function App() {
         <div className="sidebar-card">
           <div className="sidebar-card-glow" />
           <h3>Every tonne counts 🌍</h3>
-          <p>Beautiful environmental intelligence for modern enterprise sustainability teams.</p>
+          <p>Track impact across records and keep sustainability review decisions visible.</p>
           <button onClick={() => setActiveTab('Overview')}>Explore Impact →</button>
         </div>
       </aside>
 
-      {/* MAIN */}
       <main className="main">
-        {/* HERO */}
         <section className="hero">
           <div className="hero-gradient" />
           <div className="hero-content">
-            <span className="eyebrow">ENTERPRISE SUSTAINABILITY INTELLIGENCE</span>
-            <h1>Carbon tracking<br />made magical.</h1>
-            <p>
-              Beautiful environmental intelligence for modern enterprise sustainability teams.
-              Audit-ready. Real-time. Human-first.
-            </p>
+            <span className="eyebrow">CARBON ACCOUNTABILITY</span>
+            <h1>Sustainability, made accountable.</h1>
+            <p>See the full story behind every submission.</p>
             <div className="hero-buttons">
-              <button className="primary-btn" onClick={() => setActiveTab('Review Queue')}>Open Dashboard</button>
-              <button className="secondary-btn" onClick={() => setActiveTab('Audit Logs')}>View Reports</button>
+              <button className="primary-btn" onClick={() => setActiveTab('Review Queue')}>
+                Open Dashboard
+              </button>
+              <button className="secondary-btn" onClick={() => setActiveTab('Audit Logs')}>
+                View Reports
+              </button>
             </div>
           </div>
 
-          {/* EARTH */}
           <div className="earth-area">
             <div className="earth-glow" />
             <div className="earth" />
@@ -292,61 +342,74 @@ export default function App() {
           </div>
         </section>
 
-        {/* STATS */}
         <section className="stats">
           <div className="stat-card">
             <div className="stat-glow" />
-            <div className="stat-icon"><Leaf size={28} /></div>
+            <div className="stat-icon">
+              <Leaf size={28} />
+            </div>
             <div>
               <span>Total Records</span>
-              <h2><AnimatedNumber value={totalRecords} /></h2>
+              <h2>
+                <AnimatedNumber value={totalRecords} />
+              </h2>
             </div>
           </div>
 
           <div className="stat-card">
             <div className="stat-glow" />
-            <div className="stat-icon"><Globe size={28} /></div>
+            <div className="stat-icon">
+              <Globe size={28} />
+            </div>
             <div>
               <span>Approved Logs</span>
-              <h2><AnimatedNumber value={approvedRecords} /></h2>
+              <h2>
+                <AnimatedNumber value={approvedRecords} />
+              </h2>
             </div>
           </div>
 
           <div className="stat-card">
             <div className="stat-glow" />
-            <div className="stat-icon"><AlertTriangle size={28} /></div>
+            <div className="stat-icon">
+              <AlertTriangle size={28} />
+            </div>
             <div>
               <span>Flagged Issues</span>
-              <h2><AnimatedNumber value={failedRecords} /></h2>
+              <h2>
+                <AnimatedNumber value={failedRecords + suspiciousRecords} />
+              </h2>
             </div>
           </div>
 
           <div className="stat-card">
             <div className="stat-glow" />
-            <div className="stat-icon"><ShieldCheck size={28} /></div>
+            <div className="stat-icon">
+              <ShieldCheck size={28} />
+            </div>
             <div>
               <span>Awaiting Sign-Off</span>
-              <h2><AnimatedNumber value={pendingRecords} /></h2>
+              <h2>
+                <AnimatedNumber value={pendingRecords} />
+              </h2>
             </div>
           </div>
         </section>
 
-        {/* ANALYTICS ENVIRONMENT INTEGRATION BLOCK */}
-        {(activeTab === 'Overview' || activeTab === 'Analytics') && (
+        {activeTab === 'Overview' && (
           <section className="analytics-section">
             <div className="analytics-header">
               <div>
-                <span className="analytics-eyebrow">Environmental Intelligence</span>
-                <h2>Magical analytics experience ✨</h2>
+                <span className="analytics-eyebrow">Portfolio Overview</span>
+                <h2>Verified ESG activity for {activeClientName}</h2>
               </div>
               <div className="analytics-chip">
-                <Sparkles size={16} />
-                Live Sustainability Insights
+                <Building2 size={16} />
+                {CLIENT_CODE}
               </div>
             </div>
 
             <div className="analytics-grid">
-              {/* MAIN TREND LINE CHART */}
               <motion.div
                 className="chart-card large-card"
                 initial={{ opacity: 0, y: 30 }}
@@ -356,17 +419,17 @@ export default function App() {
                 <div className="chart-glow" />
                 <div className="card-top">
                   <div>
-                    <span className="chart-label">Carbon Trend</span>
-                    <h3>Emissions Overview</h3>
+                    <span className="chart-label">Review Status</span>
+                    <h3>Workflow Distribution</h3>
                   </div>
                   <div className="mini-badge">
                     <Wind size={15} />
-                    -18%
+                    {totalRecords} records
                   </div>
                 </div>
 
                 <ResponsiveContainer width="100%" height={320}>
-                  <AreaChart data={emissionsData}>
+                  <AreaChart data={statusAnalyticsData}>
                     <defs>
                       <linearGradient id="greenGlow" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="#47d286" stopOpacity={0.8} />
@@ -375,12 +438,17 @@ export default function App() {
                     </defs>
                     <XAxis dataKey="month" tickLine={false} axisLine={false} />
                     <Tooltip />
-                    <Area type="monotone" dataKey="carbon" stroke="#47d286" strokeWidth={4} fill="url(#greenGlow)" />
+                    <Area
+                      type="monotone"
+                      dataKey="carbon"
+                      stroke="#47d286"
+                      strokeWidth={4}
+                      fill="url(#greenGlow)"
+                    />
                   </AreaChart>
                 </ResponsiveContainer>
               </motion.div>
 
-              {/* PIE SYSTEM MATRIX */}
               <motion.div
                 className="chart-card"
                 initial={{ opacity: 0, scale: 0.9 }}
@@ -390,7 +458,7 @@ export default function App() {
                 <div className="chart-glow small-glow" />
                 <div className="card-top">
                   <div>
-                    <span className="chart-label">Sources</span>
+                    <span className="chart-label">Source Systems</span>
                     <h3>Emission Sources</h3>
                   </div>
                   <Factory size={20} />
@@ -398,16 +466,25 @@ export default function App() {
 
                 <ResponsiveContainer width="100%" height={280}>
                   <PieChart>
-                    <Pie data={sourceData} dataKey="value" cx="50%" cy="50%" innerRadius={70} outerRadius={100} paddingAngle={6}>
-                      {sourceData.map((entry, index) => (
+                    <Pie
+                      data={sourceBreakdownData}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={70}
+                      outerRadius={100}
+                      paddingAngle={6}
+                    >
+                      {sourceBreakdownData.map((entry, index) => (
                         <Cell key={index} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
+                    <Tooltip />
                   </PieChart>
                 </ResponsiveContainer>
               </motion.div>
 
-              {/* BAR SCOPE COMPARISON GRAPH */}
               <motion.div
                 className="chart-card"
                 initial={{ opacity: 0, x: -20 }}
@@ -417,14 +494,14 @@ export default function App() {
                 <div className="chart-glow blue-glow" />
                 <div className="card-top">
                   <div>
-                    <span className="chart-label">Scope Analytics</span>
-                    <h3>Environmental Impact</h3>
+                    <span className="chart-label">Scope Summary</span>
+                    <h3>Scope-wise Emissions</h3>
                   </div>
                   <Trees size={20} />
                 </div>
 
                 <ResponsiveContainer width="100%" height={280}>
-                  <BarChart data={impactData}>
+                  <BarChart data={scopeImpactData}>
                     <CartesianGrid strokeDasharray="3 3" opacity={0.08} />
                     <XAxis dataKey="type" axisLine={false} tickLine={false} />
                     <Tooltip />
@@ -433,7 +510,6 @@ export default function App() {
                 </ResponsiveContainer>
               </motion.div>
 
-              {/* MACHINE INSIGHTS EXTENSION CARD */}
               <motion.div
                 className="insight-card"
                 initial={{ opacity: 0, x: 20 }}
@@ -443,18 +519,22 @@ export default function App() {
                 <div className="insight-glow" />
                 <div className="insight-top">
                   <Leaf size={24} />
-                  <span>AI Sustainability Insight</span>
+                  <span>Portfolio Insight</span>
                 </div>
-                <h3>Emissions dropped 18% this quarter 🌿</h3>
-                <p>Smart supplier optimization reduced Scope 3 impact significantly across enterprise logistics systems.</p>
-                <button>View Recommendation</button>
+                <h3>
+                  Total tracked footprint: <AnimatedNumber value={totalCarbon} decimals={2} /> kg CO₂e
+                </h3>
+                <p>
+                  These metrics are generated from ingested source records for {activeClientName},
+                  grouped by review status, source system, and emissions scope.
+                </p>
+                <button onClick={() => setActiveTab('Review Queue')}>Review Source Records</button>
               </motion.div>
             </div>
           </section>
         )}
 
-        {/* TABLE REVIEW SEGMENT CONFIGURATION */}
-        {(activeTab === 'Review Queue' || activeTab === 'Analytics') && (
+        {activeTab === 'Review Queue' && (
           <section className="table-wrap">
             <div className="table-light" />
             <div className="table-orb orb-a" />
@@ -463,11 +543,11 @@ export default function App() {
             <div className="table-header">
               <div>
                 <h2>Review Queue Portfolio</h2>
-                <p>{filteredRows.length} ledgers matching</p>
+                <p>{filteredRows.length} ledgers matching for {activeClientName}</p>
               </div>
 
               <div className="filters">
-                {['All', 'Pending', 'Approved', 'Failed', 'Suspicious'].map(item => (
+                {['All', 'Pending', 'Approved', 'Failed', 'Suspicious'].map((item) => (
                   <button
                     key={item}
                     className={filter === item ? 'filter-active' : ''}
@@ -495,33 +575,69 @@ export default function App() {
                 <tbody>
                   {filteredRows.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="empty-row"><span>No ledger entries found tracking this filter.</span></td>
-                    </tr>
-                  ) : filteredRows.map((row) => (
-                    <tr key={row.id}>
-                      <td className="source">
-                        {row.source === 'SAP' ? <Database size={14} className="inline-table-icon" style={{ marginRight: '6px' }} /> : <Plane size={14} className="inline-table-icon" style={{ marginRight: '6px' }} />}
-                        {row.source}
-                      </td>
-                      <td><span className="scope-tag">{row.scope}</span></td>
-                      <td className="mono">{row.quantity}</td>
-                      <td className="carbon">{row.carbon}</td>
-                      <td><span className={`status ${row.status.toLowerCase()}`}>{row.status}</span></td>
-                      <td className={row.status === 'Suspicious' || row.status === 'Failed' ? 'danger-note' : 'note'}>
-                        {row.note}
-                      </td>
-                      <td>
-                        {row.status === 'Approved' ? (
-                          <span className="locked-label">Locked & Signed</span>
-                        ) : (
-                          <div className="actions">
-                            <button className="approve" onClick={() => handleApprove(row.id)}>Approve</button>
-                            <button className="reject" onClick={() => handleReject(row.id)}>Reject</button>
-                          </div>
-                        )}
+                      <td colSpan={7} className="empty-row">
+                        <span>No ledger entries found tracking this filter.</span>
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    filteredRows.map((row) => (
+                      <tr key={row.id}>
+                        <td className="source">
+                          {row.source === 'SAP' ? (
+                            <Database
+                              size={14}
+                              className="inline-table-icon"
+                              style={{ marginRight: '6px' }}
+                            />
+                          ) : row.source === 'TRAVEL' ? (
+                            <Plane
+                              size={14}
+                              className="inline-table-icon"
+                              style={{ marginRight: '6px' }}
+                            />
+                          ) : (
+                            <Leaf
+                              size={14}
+                              className="inline-table-icon"
+                              style={{ marginRight: '6px' }}
+                            />
+                          )}
+                          {row.source}
+                        </td>
+                        <td>
+                          <span className="scope-tag">{getScopeLabel(row.scope)}</span>
+                        </td>
+                        <td className="mono">{row.quantity}</td>
+                        <td className="carbon">{row.carbon}</td>
+                        <td>
+                          <span className={`status ${row.status.toLowerCase()}`}>{row.status}</span>
+                        </td>
+                        <td
+                          className={
+                            row.status === 'Suspicious' || row.status === 'Failed'
+                              ? 'danger-note'
+                              : 'note'
+                          }
+                        >
+                          {row.note}
+                        </td>
+                        <td>
+                          {row.status === 'Approved' ? (
+                            <span className="locked-label">Locked & Signed</span>
+                          ) : (
+                            <div className="actions">
+                              <button className="approve" onClick={() => handleApprove(row.id)}>
+                                Approve
+                              </button>
+                              <button className="reject" onClick={() => handleReject(row.id)}>
+                                Reject
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -531,11 +647,52 @@ export default function App() {
         {activeTab === 'Audit Logs' && (
           <section className="table-wrap">
             <div className="table-header">
-              <h2>Audit Verification Ledger History</h2>
-              <p>Cryptographically finalized historical streams</p>
+              <div>
+                <h2>Audit Verification Ledger History</h2>
+                <p>{auditLogs.length} audit event(s) recorded for {activeClientName}</p>
+              </div>
             </div>
-            <div style={{ padding: '32px', color: 'var(--muted)', fontStyle: 'italic', fontSize: '14px' }}>
-              🔒 Archive arrays verified and compiled successfully. Subsequent alterations are suspended for active system logs.
+
+            <div className="audit-log-list">
+              {auditLogs.length === 0 ? (
+                <div className="empty-row" style={{ padding: '32px' }}>
+                  <span>No audit events recorded yet.</span>
+                </div>
+              ) : (
+                auditLogs.map((log) => (
+                  <div key={log.id} className="audit-log-card">
+                    <div className="audit-log-top">
+                      <div className="audit-log-heading">
+                        <span className="audit-status-badge">{formatActionType(log.actionType)}</span>
+                        <strong>Record #{log.recordId}</strong>
+                      </div>
+                      <span className="audit-time">{new Date(log.timestamp).toLocaleString()}</span>
+                    </div>
+
+                    <div className="audit-log-body">
+                      <p>
+                        <span>Performed by:</span> {log.performedBy}
+                      </p>
+                      <p>
+                        <span>Previous status:</span> {log.previousState?.status ?? '—'}
+                      </p>
+                      <p>
+                        <span>New status:</span> {log.newState?.status ?? '—'}
+                      </p>
+                      {(log.previousState?.review_notes || log.newState?.review_notes) && (
+                        <>
+                          <p>
+                            <span>Previous notes:</span> {log.previousState?.review_notes ?? '—'}
+                          </p>
+                          <p>
+                            <span>New notes:</span> {log.newState?.review_notes ?? '—'}
+                          </p>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </section>
         )}
